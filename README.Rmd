@@ -1,0 +1,235 @@
+---
+title: "README"
+author: "Caleb Rother"
+date: "2025-06-27"
+output: html_document
+editor_options: 
+  markdown: 
+    wrap: 72
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+# Sourcing files with relative paths makes the project portable.
+# This assumes the .R files are in the same directory as the .Rmd file.
+source("paired_comparison.R")
+source("group_comparisons.R")
+source("anova_assumptions.R")
+```
+
+# **Function: paired_comparison()**
+
+## Purpose
+
+Performs a paired t-test or its non-parametric equivalent (Wilcoxon
+Signed-Rank Test) to determine if there is a significant change between
+two paired measurements. It automatically generates a plot and prints
+the statistical results.
+
+## When to Use
+
+This function is designed exclusively for paired or dependent data. The
+classic use case is a "before-and-after" study where two measurements
+are taken from the same subject or a matched pair.
+
+**Example**: Measuring a patient's biomarker level before and after a
+specific treatment.
+
+**Warning**: Do not use this for comparing two independent groups (e.g.,
+a treatment group vs. a separate control group).
+
+## Arguments
+
+| Argument | Description | Required? | Default Value |
+|:-----------------|:-----------------|:------------------:|:-----------------|
+| `data` | The input data frame. | Yes |  |
+| `before_col` | The unquoted column name for the "before" measurement. | Yes |  |
+| `after_col` | The unquoted column name for the "after" measurement. | Yes |  |
+| `parametric` | Logical. `TRUE` for a Paired t-Test, `FALSE` for Wilcoxon Signed-Rank. | No | `FALSE` |
+| `plot_title` | A custom character string for the plot's main title. | No | Auto-generated |
+| `xlab` | A custom character string for the x-axis label. | No | `"Time Point"` |
+| `ylab` | A custom character string for the y-axis label. | No | `"Value"` |
+| `before_label` | A custom string to display for the "before" group on the x-axis. | No | Uses the column name |
+| `after_label` | A custom string to display for the "after" group on the x-axis. | No | Uses the column name |
+| `show_paired_lines` | Logical. If `TRUE`, shows the grey lines connecting paired points. | No | `TRUE` |
+| `before_color` | A string for the "before" group's color (e.g., `"blue"`, `"#FF6347"`). | No | ggplot2 default |
+| `after_color` | A string for the "after" group's color. | No | ggplot2 default |
+
+```{r create-paired-data}
+# Create Sample Paired Data
+set.seed(42)
+n_subjects <- 80
+before_after_data <- data.frame(
+  patient_id = paste0("P", 1:n_subjects),
+  biomarker_baseline = rnorm(n_subjects, mean = 150, sd = 20)
+)
+before_after_data$biomarker_followup <- before_after_data$biomarker_baseline + rnorm(n_subjects, mean = -15, sd = 10)
+```
+
+```{r paired-example-1}
+paired_comparison(
+  data = before_after_data,
+  before_col = biomarker_baseline,
+  after_col = biomarker_followup
+)
+```
+
+```{r paired-example-2}
+paired_comparison(
+  data = before_after_data,
+  before_col = biomarker_baseline,
+  after_col = biomarker_followup,
+  parametric = TRUE,
+  plot_title = "Biomarker Levels After 6-Month Treatment",
+  ylab = "Biomarker Concentration (U/L)",
+  xlab = "Study Phase",
+  before_label = "Baseline Visit",
+  after_label = "6-Month Follow-up",
+  show_paired_lines = FALSE,
+  before_color = "#1B9E77",
+  after_color = "#7570B3"
+)
+```
+
+<br>
+
+<hr>
+
+<br>
+
+# **Function: `check_anova_assumptions()`**
+
+## Purpose
+
+A diagnostic tool to check the statistical assumptions required to run a
+parametric ANOVA. It performs formal tests for normality of residuals
+and homogeneity of variances, provides visual plots, and gives a clear
+recommendation on whether to use a parametric or non-parametric test.
+
+## When to Use
+
+Use this *before* running `group_comparison` with `parametric = TRUE`.
+It helps you justify your choice of test. It works for one-way and
+two-way models.
+
+## Arguments
+
+| Argument | Description | Required? | Default |
+|:------------|:----------------------------------|:-----------:|:------------|
+| `data` | Input data frame (tibble or data.frame). | Yes |  |
+| `formula` | An R formula specifying the model (e.g., `Response ~ Group1 * Group2`). | Yes |  |
+
+## Example
+
+```{r anova-check-example}
+# Create sample data for a one-way comparison
+set.seed(123)
+df_check <- data.frame(
+  Group    = factor(rep(c("A", "B", "C"), each = 20)),
+  Outcome  = c(rnorm(20, 5, 1), rnorm(20, 6, 1.5), rnorm(20, 7, 2.5)) # Variances might be unequal
+)
+
+# Check the assumptions for a one-way ANOVA model
+check_anova_assumptions(
+  data = df_check,
+  formula = Outcome ~ Group
+)
+```
+
+<br>
+
+<hr>
+
+<br>
+
+# **Function: `group_comparison()`**
+
+## Purpose
+
+Performs one-way or two-way group comparisons using either parametric
+tests (ANOVA + Tukey HSD) or non-parametric tests (Kruskal-Wallis +
+Dunn’s test). Automatically generates a boxplot with jittered points,
+adds pairwise significance annotations, and prints the statistical
+results.
+
+## When to Use
+
+-   **One-Way Comparison (single factor):** comparing a numeric outcome
+    across two or more independent groups.
+-   **Two-Way Comparison (factorial):** assessing the effect of two
+    grouping factors (and their interaction) on a numeric outcome.
+
+## Arguments
+
+| Argument | Description | Required? | Default |
+|:-------------|:-----------------------------|:------------:|:-------------|
+| `data` | Input data frame (tibble or data.frame). | Yes |  |
+| `response_col` | Unquoted name of the numeric response column. | Yes |  |
+| `group1_col` | Unquoted name of the primary grouping factor. | Yes |  |
+| `group2_col` | Unquoted name of the secondary grouping factor (activates two-way). | No | `NULL` |
+| `parametric` | Logical: `TRUE` for ANOVA, `FALSE` for non-parametric. | No | `FALSE` |
+| `p_label_style` | How to display p-values: `"letters"`, `"p.value"`, or `"both"`. | No | `"letters"` |
+| `show_test_name` | Logical: include the main test name in the subtitle. | No | `TRUE` |
+| `plot_title` | Character: custom main title for the plot. | No | auto-generated |
+| `xlab` | Character: custom label for the x-axis. | No | grouping column name |
+| `ylab` | Character: custom label for the y-axis. | No | response column name |
+| `palette` | `ggpubr` palette name or vector of colours. | No | `"npg"` |
+| `label_size` | Numeric: font size for significance labels. | No | `3.8` |
+| `hide_ns` | Logical: if `TRUE`, suppress "ns" annotations. | No | `FALSE` |
+
+## Examples
+
+### 1. One-Way, Non-Parametric (default)
+
+```{r one-way-default}
+set.seed(123)
+df1 <- data.frame(
+  Group    = factor(rep(c("A", "B", "C"), each = 20)),
+  Outcome  = c(rnorm(20,5,1), rnorm(20,6,1), rnorm(20,7,1))
+)
+
+group_comparison(
+  data         = df1,
+  response_col = Outcome,
+  group1_col   = Group
+)
+```
+
+### 2. One-Way, Parametric + Both Labels + Custom Palette
+
+```{r one-way-param-both}
+group_comparison(
+  data          = df1,
+  response_col  = Outcome,
+  group1_col    = Group,
+  parametric    = TRUE,
+  p_label_style = "both",
+  palette       = c("#D55E00","#0072B2","#009E73")
+)
+```
+
+### 3. Two-Way ANOVA + Tukey HSD
+
+```{r two-way-parametric}
+set.seed(456)
+df2 <- expand.grid(
+  Genotype = factor(c("WT","Mut")),
+  Treatment= factor(c("Placebo","Drug")),
+  n = 1:15
+)
+df2$Response <- rnorm(
+  n = nrow(df2),
+  mean = with(df2, ifelse(Genotype == "WT", 5, 7) + ifelse(Treatment == "Drug", 2, 0)),
+  sd   = 1
+)
+
+
+# CORRECTED: Updated syntax
+group_comparison(
+  data          = df2,
+  response_col  = Response,
+  group1_col    = Treatment,
+  group2_col    = Genotype,
+  parametric    = TRUE
+)
+```
