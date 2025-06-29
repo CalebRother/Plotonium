@@ -6,6 +6,7 @@
     <title>WebR Stats Analyzer</title>
     <style>
         body { font-family: sans-serif; max-width: 800px; margin: 2em auto; padding: 0 1em; }
+        .input-section { margin-bottom: 1em; }
         #outputs { margin-top: 2em; border-top: 1px solid #ccc; padding-top: 1em; }
         #plot-output img { max-width: 100%; }
         pre { background-color: #f4f4f4; padding: 1em; white-space: pre-wrap; }
@@ -15,13 +16,22 @@
 </head>
 <body>
     <h1>WebR Statistics Analyzer</h1>
-    <p>Upload a CSV file to perform a statistical analysis. This initial version performs a paired comparison on columns named `biomarker_baseline` and `biomarker_followup`.</p>
+    <p>Upload a CSV file to perform a statistical analysis.</p>
 
-    <div>
-        <label for="csv-file-input">CSV File:</label>
+    <div class="input-section">
+        <label for="csv-file-input">1. Upload CSV File:</label>
         <input type="file" id="csv-file-input" accept=".csv">
     </div>
-    <br>
+
+    <div id="column-selector" class="input-section" style="display: none;">
+        <p>2. Select columns for Paired Comparison:</p>
+        <label for="before-col-select">"Before" Column:</label>
+        <select id="before-col-select"></select>
+        <br><br>
+        <label for="after-col-select">"After" Column:</label>
+        <select id="after-col-select"></select>
+    </div>
+
     <button id="run-button" disabled>Run Paired Comparison</button>
 
     <div id="status-message" style="margin-top: 1em;">Initializing WebR... please wait.</div>
