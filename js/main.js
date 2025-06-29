@@ -1,5 +1,3 @@
-// Corrected js/main.js file
-
 import { WebR } from 'https://webr.r-wasm.org/latest/webr.mjs';
 const webR = new WebR();
 
@@ -10,8 +8,13 @@ const statusMessage = document.getElementById('status-message');
 const outputsDiv = document.getElementById('outputs');
 const plotOutput = document.getElementById('plot-output');
 const statsOutput = document.getElementById('stats-output');
+// --- NEW: Get references to the new UI elements ---
+const columnSelectorDiv = document.getElementById('column-selector');
+const beforeColSelect = document.getElementById('before-col-select');
+const afterColSelect = document.getElementById('after-col-select');
 
-// The entire R function is now here, inside a JavaScript string.
+
+// The R function string remains the same
 const pairedComparisonRFunc = `
 paired_comparison <- function(data, before_col, after_col,
                          parametric = FALSE,
@@ -124,6 +127,42 @@ paired_comparison <- function(data, before_col, after_col,
 }
 `;
 
+// --- NEW: Function to parse CSV header and populate dropdowns ---
+function populateColumnSelectors(file) {
+    const reader = new FileReader();
+    reader.onload = function(event) {
+        // Read the first line of the file
+        const firstLine = event.target.result.split('\n')[0];
+        // Split by comma to get column names
+        const headers = firstLine.split(',').map(header => header.trim());
+
+        // Clear previous options
+        beforeColSelect.innerHTML = '';
+        afterColSelect.innerHTML = '';
+        
+        // Add a default, disabled option
+        const defaultOption = document.createElement('option');
+        defaultOption.textContent = '-- Select a column --';
+        defaultOption.disabled = true;
+        defaultOption.selected = true;
+        beforeColSelect.appendChild(defaultOption);
+        afterColSelect.appendChild(defaultOption.cloneNode(true));
+
+        // Populate dropdowns with column names
+        headers.forEach(header => {
+            const option = document.createElement('option');
+            option.value = header;
+            option.textContent = header;
+            beforeColSelect.appendChild(option);
+            afterColSelect.appendChild(option.cloneNode(true));
+        });
+
+        // Show the column selector UI
+        columnSelectorDiv.style.display = 'block';
+    };
+    reader.readAsText(file);
+}
+
 async function main() {
     try {
         statusMessage.innerText = "Initializing WebR (this may take a moment)...";
@@ -142,10 +181,23 @@ async function main() {
         console.error("Failed during initialization:", error);
         statusMessage.innerText = "Error during startup. Check the browser console (F12) for details.";
     }
+    
+    // --- NEW: Event listener for the file input ---
+    fileInput.addEventListener('change', (event) => {
+        if (event.target.files.length > 0) {
+            populateColumnSelectors(event.target.files[0]);
+        }
+    });
 
+    // --- MODIFIED: The Run button's event listener ---
     runButton.addEventListener('click', async () => {
+        // Validation checks
         if (!fileInput.files.length) {
             alert("Please select a CSV file first.");
+            return;
+        }
+        if (beforeColSelect.value === afterColSelect.value) {
+            alert("Please select two different columns to compare.");
             return;
         }
 
@@ -160,16 +212,18 @@ async function main() {
             const fileBuffer = await file.arrayBuffer();
             await webR.FS.writeFile(`/tmp/${file.name}`, new Uint8Array(fileBuffer));
 
-            // --- FIX 1: EDIT THE COLUMN NAMES BELOW ---
-            // Replace 'YOUR_BEFORE_COLUMN' and 'YOUR_AFTER_COLUMN' with the
-            // actual column names from your Wilcoxon_Test_Dataset.csv file.
+            // --- MODIFIED: Get column names from the dropdowns ---
+            const beforeCol = beforeColSelect.value;
+            const afterCol = afterColSelect.value;
+
+            // --- MODIFIED: Use the selected column names in the R command ---
             const rCommand = `
                 data <- read.csv('/tmp/${file.name}')
                 
                 paired_comparison(
                     data = data,
-                    before_col = YOUR_BEFORE_COLUMN,
-                    after_col = YOUR_AFTER_COLUMN,
+                    before_col = ${beforeCol},
+                    after_col = ${afterCol},
                     parametric = FALSE
                 )
             `;
@@ -200,7 +254,6 @@ async function main() {
             console.error("Failed during analysis:", error);
             statusMessage.innerText = "An error occurred during analysis. Check the console (F12).";
         } finally {
-            // --- FIX 2: Use .purge() instead of .close() ---
             await shelter.purge();
             statusMessage.innerText = "Analysis complete. Ready for next run.";
             runButton.disabled = false;
