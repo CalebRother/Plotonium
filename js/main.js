@@ -15,7 +15,7 @@ async function main() {
     await webR.init();
     statusMessage.innerText = "Loading R functions...";
     // `source()` the R script into the WebR environment
-    await webR.evalR("source('/r/paired_comparison.R')");
+    await webR.evalR("source('r/paired_comparison.R')");
     statusMessage.innerText = "Ready to analyze.";
     runButton.disabled = false; // Enable the run button
 
