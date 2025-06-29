@@ -1,7 +1,7 @@
 import { WebR } from 'https://webr.r-wasm.org/latest/webr.mjs';
 const webR = new WebR();
 
-// --- Get references to all HTML elements ---
+// Get references to all HTML elements
 const fileInput = document.getElementById('csv-file-input');
 const loadCsvButton = document.getElementById('load-csv-button');
 const addRowButton = document.getElementById('add-row-button');
@@ -14,7 +14,7 @@ const outputsDiv = document.getElementById('outputs');
 const plotOutput = document.getElementById('plot-output');
 const statsOutput = document.getElementById('stats-output');
 
-// --- Initialize the Handsontable spreadsheet ---
+// Initialize the Handsontable spreadsheet
 const hot = new Handsontable(spreadsheetContainer, {
     data: [['', ''], ['', '']], 
     rowHeaders: true,
@@ -72,13 +72,18 @@ async function main() {
         await webR.evalR("webr::install(c('dplyr', 'rlang', 'ggplot2', 'tidyr', 'rstatix', 'scales'))");
         
         statusMessage.innerText = "Loading R functions from file...";
-        // --- THIS IS THE FINAL FIX ---
-        // Instead of source(), we fetch the file as text and execute the text.
+        
         const response = await fetch('r/paired_comparison.R');
         if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
         }
-        const rScriptText = await response.text();
+        let rScriptText = await response.text();
+        
+        // --- THIS IS THE NEW FIX ---
+        // Trim whitespace and newlines from the start and end of the script text
+        // to ensure the R parser gets a clean function definition.
+        rScriptText = rScriptText.trim();
+        
         await webR.evalR(rScriptText);
         
         statusMessage.innerText = "Ready.";
@@ -90,7 +95,7 @@ async function main() {
         statusMessage.innerText = "Error during startup. Check console.";
     }
 
-    // --- Event listeners for spreadsheet controls ---
+    // Event listeners for spreadsheet controls
     loadCsvButton.addEventListener('click', () => { fileInput.click(); });
     addRowButton.addEventListener('click', () => { hot.alter('insert_row_below'); });
 
@@ -115,7 +120,7 @@ async function main() {
         }
     });
 
-    // --- Run button logic ---
+    // Run button logic
     runButton.addEventListener('click', async () => {
         const beforeCol = beforeColSelect.value;
         const afterCol = afterColSelect.value;
