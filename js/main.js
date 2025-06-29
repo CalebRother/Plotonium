@@ -1,3 +1,5 @@
+// Corrected js/main.js file
+
 import { WebR } from 'https://webr.r-wasm.org/latest/webr.mjs';
 const webR = new WebR();
 
@@ -151,7 +153,6 @@ async function main() {
         statusMessage.innerText = "Reading data and running analysis...";
         outputsDiv.style.display = 'none';
 
-        // --- FIX: Create a "Shelter" to safely run the code ---
         const shelter = await new webR.Shelter();
 
         try {
@@ -159,18 +160,20 @@ async function main() {
             const fileBuffer = await file.arrayBuffer();
             await webR.FS.writeFile(`/tmp/${file.name}`, new Uint8Array(fileBuffer));
 
+            // --- FIX 1: EDIT THE COLUMN NAMES BELOW ---
+            // Replace 'YOUR_BEFORE_COLUMN' and 'YOUR_AFTER_COLUMN' with the
+            // actual column names from your Wilcoxon_Test_Dataset.csv file.
             const rCommand = `
                 data <- read.csv('/tmp/${file.name}')
                 
                 paired_comparison(
                     data = data,
-                    before_col = biomarker_baseline,
-                    after_col = biomarker_followup,
+                    before_col = YOUR_BEFORE_COLUMN,
+                    after_col = YOUR_AFTER_COLUMN,
                     parametric = FALSE
                 )
             `;
             
-            // --- FIX: Call captureR on the shelter object, not webR ---
             const result = await shelter.captureR(rCommand);
 
             try {
@@ -197,8 +200,8 @@ async function main() {
             console.error("Failed during analysis:", error);
             statusMessage.innerText = "An error occurred during analysis. Check the console (F12).";
         } finally {
-            // --- FIX: Close the shelter to clean up ---
-            await shelter.close();
+            // --- FIX 2: Use .purge() instead of .close() ---
+            await shelter.purge();
             statusMessage.innerText = "Analysis complete. Ready for next run.";
             runButton.disabled = false;
         }
