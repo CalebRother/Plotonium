@@ -5,6 +5,9 @@ const webR = new WebR();
 const fileInput = document.getElementById('csv-file-input');
 const loadCsvButton = document.getElementById('load-csv-button');
 const addRowButton = document.getElementById('add-row-button');
+const addColButton = document.getElementById('add-col-button');
+const clearTableButton = document.getElementById('clear-table-button');
+const exportCsvButton = document.getElementById('export-csv-button');
 const spreadsheetContainer = document.getElementById('spreadsheet-container');
 const beforeColSelect = document.getElementById('before-col-select');
 const afterColSelect = document.getElementById('after-col-select');
@@ -63,6 +66,24 @@ function updateColumnSelectors() {
     }, 0);
 }
 
+function loadCsvData(file) {
+    Papa.parse(file, {
+        header: true,
+        skipEmptyLines: true,
+        complete: function(results) {
+            const headers = results.meta.fields;
+            const tableData = results.data.map(row =>
+                headers.map(field => row[field] !== undefined ? row[field] : '')
+            );
+            hot.updateSettings({
+                colHeaders: headers,
+                data: tableData,
+                columns: headers.map(() => ({})),
+            });
+        }
+    });
+}
+
 async function main() {
     try {
         statusMessage.innerText = "Initializing WebR...";
@@ -88,25 +109,48 @@ async function main() {
     // Event listeners
     loadCsvButton.addEventListener('click', () => { fileInput.click(); });
     addRowButton.addEventListener('click', () => { hot.alter('insert_row_below'); });
+    addColButton.addEventListener('click', () => {
+        const numCols = hot.countCols();
+        const newHeader = `Column ${String.fromCharCode(65 + numCols)}`;
+        hot.alter('insert_col', numCols);
+        const headers = hot.getColHeader();
+        headers[numCols] = newHeader;
+        hot.updateSettings({ colHeaders: headers });
+    });
+    clearTableButton.addEventListener('click', () => {
+        hot.loadData([["", ""]]);
+        hot.updateSettings({ colHeaders: ["Column A", "Column B"] });
+    });
+    exportCsvButton.addEventListener('click', () => {
+        const data = hot.getData();
+        const headers = hot.getColHeader();
+        const csv = Papa.unparse({ fields: headers, data: data }, { skipEmptyLines: false });
+        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = 'data.csv';
+        link.click();
+    });
 
     fileInput.addEventListener('change', (event) => {
         if (event.target.files.length > 0) {
-            Papa.parse(event.target.files[0], {
-                header: true,
-                skipEmptyLines: true,
-                complete: function(results) {
-                    const headers = results.meta.fields;
-                    const tableData = results.data.map(row => 
-                        headers.map(field => row[field] !== undefined ? row[field] : '')
-                    );
-                    hot.updateSettings({
-                        colHeaders: headers,
-                        data: tableData,
-                        columns: headers.map(() => ({})),
-                    });
-                }
-            });
+            loadCsvData(event.target.files[0]);
             fileInput.value = '';
+        }
+    });
+
+    spreadsheetContainer.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        spreadsheetContainer.classList.add('dragover');
+    });
+    spreadsheetContainer.addEventListener('dragleave', () => {
+        spreadsheetContainer.classList.remove('dragover');
+    });
+    spreadsheetContainer.addEventListener('drop', (e) => {
+        e.preventDefault();
+        spreadsheetContainer.classList.remove('dragover');
+        if (e.dataTransfer.files.length > 0) {
+            loadCsvData(e.dataTransfer.files[0]);
         }
     });
 
