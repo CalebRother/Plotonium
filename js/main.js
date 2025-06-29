@@ -1,7 +1,7 @@
 import { WebR } from 'https://webr.r-wasm.org/latest/webr.mjs';
 const webR = new WebR();
 
-// Get references to all HTML elements
+// --- Get references to all HTML elements ---
 const fileInput = document.getElementById('csv-file-input');
 const loadCsvButton = document.getElementById('load-csv-button');
 const addRowButton = document.getElementById('add-row-button');
@@ -14,7 +14,7 @@ const outputsDiv = document.getElementById('outputs');
 const plotOutput = document.getElementById('plot-output');
 const statsOutput = document.getElementById('stats-output');
 
-// Initialize the Handsontable spreadsheet
+// --- Initialize the Handsontable spreadsheet ---
 const hot = new Handsontable(spreadsheetContainer, {
     data: [['', ''], ['', '']], 
     rowHeaders: true,
@@ -71,18 +71,10 @@ async function main() {
         statusMessage.innerText = "Installing R packages...";
         await webR.evalR("webr::install(c('dplyr', 'rlang', 'ggplot2', 'tidyr', 'rstatix', 'scales'))");
         
+        // --- REVERTING TO THE CLEAN SOURCE() METHOD ---
+        // Now that all pathing/caching issues are solved, this is the correct way.
         statusMessage.innerText = "Loading R functions from file...";
-        
-        const response = await fetch('r/paired_comparison.R');
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        const rScriptText = await response.text();
-        
-        // --- THIS IS THE NEW FIX ---
-        // Instead of executing the text directly, we assign it as the body
-        // of a function. This is a more robust way to define a function from a string.
-        await webR.evalR(`paired_comparison <- eval(parse(text='${rScriptText.replace(/'/g, "\\'").replace(/\n/g, '\\n')}'))`);
+        await webR.evalR("source('r/paired_comparison.R')");
         
         statusMessage.innerText = "Ready.";
         runButton.disabled = false;
