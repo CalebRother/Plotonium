@@ -20,8 +20,9 @@ source("anova_assumptions.R")
 ## Web Interface
 
 This project includes a lightweight browser interface in `index.html` that
-leverages WebR. You can import a CSV file or manually enter data into the
-embedded spreadsheet, then export the edited table if needed.
+leverages WebR. You can import a CSV file (using the button or by dragging and
+dropping it onto the spreadsheet) or manually enter data into the embedded
+spreadsheet. After editing, the table can be exported back to a CSV file.
 
 # **Function: paired_comparison()**
 
