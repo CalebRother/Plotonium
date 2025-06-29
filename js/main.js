@@ -77,14 +77,12 @@ async function main() {
         if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
         }
-        let rScriptText = await response.text();
+        const rScriptText = await response.text();
         
         // --- THIS IS THE NEW FIX ---
-        // Trim whitespace and newlines from the start and end of the script text
-        // to ensure the R parser gets a clean function definition.
-        rScriptText = rScriptText.trim();
-        
-        await webR.evalR(rScriptText);
+        // Instead of executing the text directly, we assign it as the body
+        // of a function. This is a more robust way to define a function from a string.
+        await webR.evalR(`paired_comparison <- eval(parse(text='${rScriptText.replace(/'/g, "\\'").replace(/\n/g, '\\n')}'))`);
         
         statusMessage.innerText = "Ready.";
         runButton.disabled = false;
@@ -95,7 +93,7 @@ async function main() {
         statusMessage.innerText = "Error during startup. Check console.";
     }
 
-    // Event listeners for spreadsheet controls
+    // Event listeners
     loadCsvButton.addEventListener('click', () => { fileInput.click(); });
     addRowButton.addEventListener('click', () => { hot.alter('insert_row_below'); });
 
