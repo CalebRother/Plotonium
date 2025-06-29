@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebR Stats Analyzer</title>
+    <style>
+        body { font-family: sans-serif; max-width: 800px; margin: 2em auto; padding: 0 1em; }
+        #outputs { margin-top: 2em; border-top: 1px solid #ccc; padding-top: 1em; }
+        #plot-output img { max-width: 100%; }
+        pre { background-color: #f4f4f4; padding: 1em; white-space: pre-wrap; }
+        button:disabled { cursor: not-allowed; background-color: #ccc; }
+    </style>
+    <script src="https://webr.r-wasm.org/latest/webr.mjs" type="module"></script>
+</head>
+<body>
+    <h1>WebR Statistics Analyzer</h1>
+    <p>Upload a CSV file to perform a statistical analysis. This initial version performs a paired comparison on columns named `biomarker_baseline` and `biomarker_followup`.</p>
+
+    <div>
+        <label for="csv-file-input">CSV File:</label>
+        <input type="file" id="csv-file-input" accept=".csv">
+    </div>
+    <br>
+    <button id="run-button" disabled>Run Paired Comparison</button>
+
+    <div id="status-message" style="margin-top: 1em;">Initializing WebR... please wait.</div>
+
+    <div id="outputs" style="display: none;">
+        <h2>Results</h2>
+        <div id="plot-output"></div>
+        <h3>Statistical Summary</h3>
+        <pre><code id="stats-output"></code></pre>
+    </div>
+
+    <script src="js/main.js" type="module"></script>
+</body>
+</html>
