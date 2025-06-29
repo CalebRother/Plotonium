@@ -1,15 +1,5 @@
 # FILE: Biostats_Functions/paired_ttest.R
 
-## --- IMPROVEMENT ---
-# Dependencies are now loaded at the top of the script, not inside the function.
-# This is more efficient and follows best practices.
-library(dplyr)
-library(rlang)
-library(ggplot2)
-library(tidyr)
-library(rstatix)
-library(scales)
-
 paired_comparison <- function(data, before_col, after_col,
                               parametric = FALSE,
                               plot_title = NULL,
