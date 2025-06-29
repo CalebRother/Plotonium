@@ -17,6 +17,12 @@ source("group_comparisons.R")
 source("anova_assumptions.R")
 ```
 
+## Web Interface
+
+This project includes a lightweight browser interface in `index.html` that
+leverages WebR. You can import a CSV file or manually enter data into the
+embedded spreadsheet, then export the edited table if needed.
+
 # **Function: paired_comparison()**
 
 ## Purpose
