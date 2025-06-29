@@ -14,8 +14,11 @@ async function main() {
     statusMessage.innerText = "Initializing WebR (this may take a moment)...";
     await webR.init();
     statusMessage.innerText = "Loading R functions...";
-    // `source()` the R script into the WebR environment
+    
+    // --- THIS IS THE CORRECTED LINE ---
+    // The path is now relative, without the leading slash.
     await webR.evalR("source('r/paired_comparison.R')");
+    
     statusMessage.innerText = "Ready to analyze.";
     runButton.disabled = false; // Enable the run button
 
@@ -37,13 +40,9 @@ async function main() {
         await webR.FS.writeFile(`/tmp/${file.name}`, new Uint8Array(fileBuffer));
 
         // 4. Construct and execute the R command
-        // This is where we call our function on the data we just loaded.
-        // NOTE: We are hardcoding the column names for now.
         const rCommand = `
             data <- read.csv('/tmp/${file.name}')
             
-            # The paired_comparison function prints a plot and returns results.
-            # We capture this behavior to display it in the browser.
             paired_comparison(
                 data = data,
                 before_col = biomarker_baseline,
@@ -52,35 +51,28 @@ async function main() {
             )
         `;
         
-        // Use a `webR.captureR()` to get all outputs (plots, text, etc.)
         const result = await webR.captureR(rCommand);
 
         try {
             // 5. Process and display the results
-            // Filter for the plot output messages
             const plots = result.images;
             if (plots.length > 0) {
-                // Create an image element and display the plot
                 const img = document.createElement('img');
-                img.src = plots[0]; // Use the first plot found
-                plotOutput.innerHTML = ''; // Clear previous plot
+                img.src = plots[0]; 
+                plotOutput.innerHTML = '';
                 plotOutput.appendChild(img);
             }
 
-            // Filter for the text output messages (from print() or message())
             const textOutput = result.messages
                 .filter(msg => msg.type === 'stdout' || msg.type === 'stderr')
                 .map(msg => msg.data)
                 .join('\n');
             
             statsOutput.innerText = textOutput;
-
-            // Show the outputs section
             outputsDiv.style.display = 'block';
 
         } finally {
             // 6. Clean up and re-enable the UI
-            // Destroy the captured plot objects to free memory
             result.destroy();
             statusMessage.innerText = "Analysis complete. Ready for next run.";
             runButton.disabled = false;
