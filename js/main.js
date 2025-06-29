@@ -10,7 +10,6 @@ const plotOutput = document.getElementById('plot-output');
 const statsOutput = document.getElementById('stats-output');
 
 // The entire R function is now here, inside a JavaScript string.
-// Note that the library() calls are removed from the original R script.
 const pairedComparisonRFunc = `
 paired_comparison <- function(data, before_col, after_col,
                          parametric = FALSE,
@@ -22,8 +21,7 @@ paired_comparison <- function(data, before_col, after_col,
                          show_paired_lines = TRUE,
                          before_color = NULL,
                          after_color = NULL) {
-  # --- 1. Load Libraries & Setup ---
-  # No library() calls needed, packages are pre-loaded by webr::install
+  # --- 1. No library() calls needed, packages are pre-loaded ---
 
   # --- 2. Handle Inputs & Prepare Data ---
   before_str <- rlang::as_name(rlang::enquo(before_col))
@@ -144,7 +142,6 @@ async function main() {
     }
 
     runButton.addEventListener('click', async () => {
-        // ... the rest of the click handler function remains the same ...
         if (!fileInput.files.length) {
             alert("Please select a CSV file first.");
             return;
@@ -154,23 +151,27 @@ async function main() {
         statusMessage.innerText = "Reading data and running analysis...";
         outputsDiv.style.display = 'none';
 
-        const file = fileInput.files[0];
-        const fileBuffer = await file.arrayBuffer();
-        await webR.FS.writeFile(`/tmp/${file.name}`, new Uint8Array(fileBuffer));
+        // --- FIX: Create a "Shelter" to safely run the code ---
+        const shelter = await new webR.Shelter();
 
-        const rCommand = `
-            data <- read.csv('/tmp/${file.name}')
-            
-            paired_comparison(
-                data = data,
-                before_col = biomarker_baseline,
-                after_col = biomarker_followup,
-                parametric = FALSE
-            )
-        `;
-        
         try {
-            const result = await webR.captureR(rCommand);
+            const file = fileInput.files[0];
+            const fileBuffer = await file.arrayBuffer();
+            await webR.FS.writeFile(`/tmp/${file.name}`, new Uint8Array(fileBuffer));
+
+            const rCommand = `
+                data <- read.csv('/tmp/${file.name}')
+                
+                paired_comparison(
+                    data = data,
+                    before_col = biomarker_baseline,
+                    after_col = biomarker_followup,
+                    parametric = FALSE
+                )
+            `;
+            
+            // --- FIX: Call captureR on the shelter object, not webR ---
+            const result = await shelter.captureR(rCommand);
 
             try {
                 const plots = result.images;
@@ -191,12 +192,14 @@ async function main() {
 
             } finally {
                 result.destroy();
-                statusMessage.innerText = "Analysis complete. Ready for next run.";
-                runButton.disabled = false;
             }
         } catch(error) {
             console.error("Failed during analysis:", error);
             statusMessage.innerText = "An error occurred during analysis. Check the console (F12).";
+        } finally {
+            // --- FIX: Close the shelter to clean up ---
+            await shelter.close();
+            statusMessage.innerText = "Analysis complete. Ready for next run.";
             runButton.disabled = false;
         }
     });
