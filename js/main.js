@@ -10,36 +10,37 @@ const plotOutput = document.getElementById('plot-output');
 const statsOutput = document.getElementById('stats-output');
 
 async function main() {
-    // 1. Initialize WebR and load our R function
     statusMessage.innerText = "Initializing WebR (this may take a moment)...";
     await webR.init();
-    statusMessage.innerText = "Loading R functions...";
+
+    // --- THIS IS THE NEW, CRITICAL STEP ---
+    // Install all the R packages that our script depends on.
+    // This might take a moment the first time a user visits.
+    statusMessage.innerText = "Installing R packages...";
+    await webR.evalR("webr::install(c('dplyr', 'rlang', 'ggplot2', 'tidyr', 'rstatix', 'scales'))");
     
-    // --- THIS IS THE CORRECTED LINE ---
-    // The path is now relative, without the leading slash.
+    // Now that packages are installed, we can source our script.
+    statusMessage.innerText = "Loading R functions...";
     await webR.evalR("source('r/paired_comparison.R')");
     
     statusMessage.innerText = "Ready to analyze.";
     runButton.disabled = false; // Enable the run button
 
-    // 2. Set up the "Run" button's click event
+    // Set up the "Run" button's click event
     runButton.addEventListener('click', async () => {
         if (!fileInput.files.length) {
             alert("Please select a CSV file first.");
             return;
         }
 
-        // Disable button and show loading status
         runButton.disabled = true;
         statusMessage.innerText = "Reading data and running analysis...";
         outputsDiv.style.display = 'none';
 
-        // 3. Make the user's file available to WebR
         const file = fileInput.files[0];
         const fileBuffer = await file.arrayBuffer();
         await webR.FS.writeFile(`/tmp/${file.name}`, new Uint8Array(fileBuffer));
 
-        // 4. Construct and execute the R command
         const rCommand = `
             data <- read.csv('/tmp/${file.name}')
             
@@ -54,7 +55,6 @@ async function main() {
         const result = await webR.captureR(rCommand);
 
         try {
-            // 5. Process and display the results
             const plots = result.images;
             if (plots.length > 0) {
                 const img = document.createElement('img');
@@ -72,7 +72,6 @@ async function main() {
             outputsDiv.style.display = 'block';
 
         } finally {
-            // 6. Clean up and re-enable the UI
             result.destroy();
             statusMessage.innerText = "Analysis complete. Ready for next run.";
             runButton.disabled = false;
