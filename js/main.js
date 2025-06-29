@@ -16,14 +16,14 @@ const statsOutput = document.getElementById('stats-output');
 
 // --- Initialize the Handsontable spreadsheet ---
 const hot = new Handsontable(spreadsheetContainer, {
-    data: [['', ''], ['', '']], // Start with a small empty grid
+    data: [['', ''], ['', '']], 
     rowHeaders: true,
-    colHeaders: ['Column A', 'Column B'], // Default headers
+    colHeaders: ['Column A', 'Column B'],
     height: 'auto',
     width: 'auto',
-    minSpareRows: 1, // Always have a blank row at the bottom
-    licenseKey: 'non-commercial-and-evaluation', // Required for free use
-    contextMenu: true, // Enable right-click menu (add/remove rows/cols)
+    minSpareRows: 1,
+    licenseKey: 'non-commercial-and-evaluation',
+    contextMenu: true,
     afterChange: updateColumnSelectors,
     afterLoadData: updateColumnSelectors,
     afterSetDataAtCell: updateColumnSelectors,
@@ -34,14 +34,11 @@ const hot = new Handsontable(spreadsheetContainer, {
 });
 
 function updateColumnSelectors() {
-    // Timeout gives Handsontable a moment to update its internal state
     setTimeout(() => {
         const headers = hot.getColHeader();
-
         const currentBefore = beforeColSelect.value;
         const currentAfter = afterColSelect.value;
-
-        // Clear previous options
+        
         beforeColSelect.innerHTML = '';
         afterColSelect.innerHTML = '';
         
@@ -61,10 +58,8 @@ function updateColumnSelectors() {
             }
         });
         
-        // Try to preserve previous selections if they still exist
         beforeColSelect.value = currentBefore;
         afterColSelect.value = currentAfter;
-
     }, 0);
 }
 
@@ -76,13 +71,19 @@ async function main() {
         statusMessage.innerText = "Installing R packages...";
         await webR.evalR("webr::install(c('dplyr', 'rlang', 'ggplot2', 'tidyr', 'rstatix', 'scales'))");
         
-        // --- THIS IS THE CLEAN, CORRECTED METHOD YOU SUGGESTED ---
         statusMessage.innerText = "Loading R functions from file...";
-        await webR.evalR("source('r/paired_comparison.R')");
+        // --- THIS IS THE FINAL FIX ---
+        // Instead of source(), we fetch the file as text and execute the text.
+        const response = await fetch('r/paired_comparison.R');
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        const rScriptText = await response.text();
+        await webR.evalR(rScriptText);
         
         statusMessage.innerText = "Ready.";
         runButton.disabled = false;
-        updateColumnSelectors(); // Initial population of dropdowns
+        updateColumnSelectors();
 
     } catch (error) {
         console.error("Failed during initialization:", error);
@@ -90,9 +91,8 @@ async function main() {
     }
 
     // --- Event listeners for spreadsheet controls ---
-    loadCsvButton.addEventListener('click', () => {
-        fileInput.click();
-    });
+    loadCsvButton.addEventListener('click', () => { fileInput.click(); });
+    addRowButton.addEventListener('click', () => { hot.alter('insert_row_below'); });
 
     fileInput.addEventListener('change', (event) => {
         if (event.target.files.length > 0) {
@@ -100,25 +100,19 @@ async function main() {
                 header: true,
                 skipEmptyLines: true,
                 complete: function(results) {
-                    // Create a dataset for Handsontable, ensuring all rows have all fields
                     const headers = results.meta.fields;
-                    const tableData = results.data.map(row => {
-                        return headers.map(field => row[field] !== undefined ? row[field] : '');
-                    });
-
+                    const tableData = results.data.map(row => 
+                        headers.map(field => row[field] !== undefined ? row[field] : '')
+                    );
                     hot.updateSettings({
                         colHeaders: headers,
                         data: tableData,
-                        columns: headers.map(() => ({})), // Ensure columns are responsive
+                        columns: headers.map(() => ({})),
                     });
                 }
             });
             fileInput.value = '';
         }
-    });
-    
-    addRowButton.addEventListener('click', () => {
-        hot.alter('insert_row_below');
     });
 
     // --- Run button logic ---
@@ -136,25 +130,15 @@ async function main() {
         outputsDiv.style.display = 'none';
 
         const shelter = await new webR.Shelter();
-
         try {
             const tableData = hot.getData();
             const headers = hot.getColHeader();
-            let csvContent = Papa.unparse({
-                fields: headers,
-                data: tableData
-            }, {
-                // Do not skip empty rows when creating the CSV string
-                skipEmptyLines: false 
-            });
-
+            let csvContent = Papa.unparse({ fields: headers, data: tableData }, { skipEmptyLines: false });
             await webR.FS.writeFile('/tmp/current_data.csv', csvContent);
 
             const rCommand = `
-                # Use backticks for column names to handle spaces or special characters
                 data <- read.csv('/tmp/current_data.csv', check.names = FALSE)
                 
-                # The R function needs the unquoted names, which we provide here
                 paired_comparison(
                     data = data,
                     before_col = \`${beforeCol}\`,
@@ -164,7 +148,6 @@ async function main() {
             `;
             
             const result = await shelter.captureR(rCommand);
-
             try {
                 const plots = result.images;
                 if (plots.length > 0) {
@@ -177,13 +160,11 @@ async function main() {
                     .filter(msg => msg.type === 'stdout' || msg.type === 'stderr')
                     .map(msg => msg.data)
                     .join('\\n');
-                
                 statsOutput.innerText = textOutput;
                 outputsDiv.style.display = 'block';
             } finally {
                 result.destroy();
             }
-
         } catch(error) {
             console.error("Failed during analysis:", error);
             statusMessage.innerText = "An error occurred during analysis. Check console.";
