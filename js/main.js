@@ -1,8 +1,13 @@
 import { WebR } from 'https://webr.r-wasm.org/latest/webr.mjs';
 const webR = new WebR();
 
-// --- Get references to all HTML elements ---
+// Get references to all HTML elements
 const fileInput = document.getElementById('csv-file-input');
+const loadCsvButton = document.getElementById('load-csv-button');
+const addRowButton = document.getElementById('add-row-button');
+const addColButton = document.getElementById('add-col-button');
+const clearTableButton = document.getElementById('clear-table-button');
+const exportCsvButton = document.getElementById('export-csv-button');
 const spreadsheetContainer = document.getElementById('spreadsheet-container');
 const beforeColSelect = document.getElementById('before-col-select');
 const afterColSelect = document.getElementById('after-col-select');
@@ -12,15 +17,7 @@ const outputsDiv = document.getElementById('outputs');
 const plotOutput = document.getElementById('plot-output');
 const statsOutput = document.getElementById('stats-output');
 
-// --- NEW: Get references to the new menu items ---
-const importCsvMenu = document.getElementById('import-csv-menu');
-const exportCsvMenu = document.getElementById('export-csv-menu');
-const addRowMenu = document.getElementById('add-row-menu');
-const addColMenu = document.getElementById('add-col-menu');
-const clearTableMenu = document.getElementById('clear-table-menu');
-
-
-// --- Initialize the Handsontable spreadsheet ---
+// Initialize the Handsontable spreadsheet
 const hot = new Handsontable(spreadsheetContainer, {
     startRows: 1000,
     startCols: 52,
@@ -106,18 +103,19 @@ async function main() {
         statusMessage.innerText = "Error during startup. Check console.";
     }
 
-    // --- MODIFIED: Event listeners are now attached to the menu items ---
-    importCsvMenu.addEventListener('click', (e) => { e.preventDefault(); fileInput.click(); });
-    addRowMenu.addEventListener('click', (e) => { e.preventDefault(); hot.alter('insert_row_below'); });
-    addColMenu.addEventListener('click', (e) => { e.preventDefault(); hot.alter('insert_col_end'); });
-    clearTableMenu.addEventListener('click', (e) => {
-        e.preventDefault();
+    // Event listeners
+    loadCsvButton.addEventListener('click', () => { fileInput.click(); });
+    addRowButton.addEventListener('click', () => { hot.alter('insert_row_below'); });
+    addColButton.addEventListener('click', () => { hot.alter('insert_col_end'); });
+    clearTableButton.addEventListener('click', () => {
         hot.loadData(Handsontable.helper.createEmptySpreadsheetData(1000, 52));
     });
-    exportCsvMenu.addEventListener('click', (e) => {
-        e.preventDefault();
-        const dataToExport = hot.getSourceData(0,0,hot.countRows()-1, hot.countCols()-1);
-        const csv = Papa.unparse(dataToExport, { header: true });
+    exportCsvButton.addEventListener('click', () => {
+        // Use the same logic as the run button to get clean data
+        const cleanData = hot.getSourceData().filter(row => !hot.isEmptyRow(hot.getSourceData().indexOf(row)));
+        const headers = hot.getColHeader().slice(0, hot.countCols()); // Get actual headers
+        const csv = Papa.unparse({ fields: headers, data: cleanData });
+
         const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
         const link = document.createElement('a');
         link.href = URL.createObjectURL(blob);
@@ -132,7 +130,17 @@ async function main() {
         }
     });
 
-    // Run button logic (no changes needed here)
+    spreadsheetContainer.addEventListener('dragover', (e) => { e.preventDefault(); spreadsheetContainer.classList.add('dragover'); });
+    spreadsheetContainer.addEventListener('dragleave', () => { spreadsheetContainer.classList.remove('dragover'); });
+    spreadsheetContainer.addEventListener('drop', (e) => {
+        e.preventDefault();
+        spreadsheetContainer.classList.remove('dragover');
+        if (e.dataTransfer.files.length > 0) {
+            loadCsvData(e.dataTransfer.files[0]);
+        }
+    });
+
+    // Run button logic
     runButton.addEventListener('click', async () => {
         const beforeCol = beforeColSelect.value;
         const afterCol = afterColSelect.value;
@@ -148,9 +156,26 @@ async function main() {
 
         const shelter = await new webR.Shelter();
         try {
-            const tableData = hot.getData();
+            // --- THIS IS THE FIX ---
+            // 1. Get the source data array from the table.
+            const sourceData = hot.getSourceData();
+            // 2. Filter out rows that Handsontable considers empty.
+            const cleanData = sourceData.filter((row, index) => !hot.isEmptyRow(index));
+            // 3. Get the current headers.
             const headers = hot.getColHeader();
-            let csvContent = Papa.unparse({ fields: headers, data: tableData }, { skipEmptyLines: false });
+
+            // Check if there is any data left to analyze
+            if (cleanData.length === 0) {
+                alert("No data found in the spreadsheet to analyze.");
+                runButton.disabled = false;
+                statusMessage.innerText = "Ready.";
+                await shelter.purge();
+                return;
+            }
+
+            // Create a CSV string from the clean data only.
+            let csvContent = Papa.unparse({ fields: headers, data: cleanData });
+            
             await webR.FS.writeFile('/tmp/current_data.csv', csvContent);
 
             const rCommand = `
