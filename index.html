@@ -10,60 +10,22 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
     
     <style>
-        body { 
-            font-family: sans-serif; 
-            margin: 0;
-            padding: 0;
-            background-color: #f8f9fa;
-            display: flex;
-            flex-direction: column;
-            height: 100vh;
-            overflow: hidden;
-        }
-        
-        .top-toolbar {
-            background-color: #fff;
-            border-bottom: 1px solid #ddd;
-            padding: 0 1em;
-            flex-shrink: 0;
-        }
+        /* All CSS styles from your file remain here */
+        body { font-family: sans-serif; margin: 0; padding: 0; background-color: #f8f9fa; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+        .top-toolbar { background-color: #fff; border-bottom: 1px solid #ddd; padding: 0 1em; flex-shrink: 0; }
         .top-toolbar ul { list-style: none; margin: 0; padding: 0; display: flex; }
         .top-toolbar > ul > li { position: relative; }
         .top-toolbar a { display: block; padding: 10px 15px; text-decoration: none; color: #333; }
         .top-toolbar a:hover { background-color: #eee; }
         .top-toolbar ul ul { display: none; position: absolute; background-color: #fff; border: 1px solid #ddd; min-width: 180px; z-index: 1000; }
         .top-toolbar li:hover > ul { display: block; }
-        .top-toolbar ul ul li { width: 100%; }
-
-        .app-container {
-            display: grid;
-            grid-template-columns: 400px 1fr;
-            grid-template-rows: 60fr 40fr;
-            grid-template-areas:
-                "controls spreadsheet"
-                "output output";
-            flex-grow: 1;
-            gap: 1em;
-            padding: 1em;
-            box-sizing: border-box;
-            overflow: hidden;
-        }
-        
-        .panel {
-            display: flex;
-            flex-direction: column;
-            background-color: #fff;
-            border: 1px solid #ddd;
-            border-radius: 8px;
-            overflow: auto;
-            padding: 1em;
-        }
-        .controls-panel   { grid-area: controls; }
+        .app-container { display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: 1fr auto; grid-template-areas: "output spreadsheet" "controls controls"; flex-grow: 1; gap: 1em; padding: 1em; box-sizing: border-box; overflow: hidden; }
+        .panel { display: flex; flex-direction: column; background-color: #fff; border: 1px solid #ddd; border-radius: 8px; overflow: auto; padding: 1em; }
+        .output-panel { grid-area: output; }
         .spreadsheet-panel { grid-area: spreadsheet; padding: 0; }
-        .output-panel     { grid-area: output; }
-        
+        .controls-panel { grid-area: controls; flex-direction: row; flex-wrap: wrap; align-items: flex-start;}
         #spreadsheet-container { width: 100%; height: 100%; overflow: hidden; }
-        pre { background-color: #f4f4f4; padding: 1em; white-space: pre-wrap; word-wrap: break-word; }
+        pre { background-color: #f4f4f4; padding: 1em; white-space: pre-wrap; word-wrap: break-word; font-size: 0.9em; }
         button:disabled { cursor: not-allowed; background-color: #ccc; }
         .range-display { margin-bottom: 10px; }
         .range-display span { font-weight: bold; font-family: monospace; padding: 2px 5px; background-color: #eee; border-radius: 4px; }
@@ -71,9 +33,8 @@
     </style>
 </head>
 <body>
-
     <nav class="top-toolbar">
-         <ul>
+        <ul>
             <li><a href="#">File</a><ul><li><a href="#" id="import-csv-menu">Import CSV</a></li><li><a href="#" id="export-csv-menu">Export CSV</a></li></ul></li>
             <li><a href="#">Sheet</a><ul><li><a href="#" id="add-row-menu">Add Row</a></li><li><a href="#" id="add-col-menu">Add Column</a></li><li><a href="#" id="clear-table-menu">Clear Table</a></li></ul></li>
             <li><a href="#">Analysis</a><ul><li><a href="#">Paired Comparison (Active)</a></li></ul></li>
@@ -82,25 +43,6 @@
     <input type="file" id="csv-file-input" accept=".csv" style="display: none;">
 
     <div class="app-container">
-        
-        <div class="panel controls-panel">
-            <h2>Plotonium</h2>
-            <p>Highlight a range, then use the analysis controls below.</p>
-            <div id="analysis-section">
-                <h4>Run Paired Comparison</h4>
-                 <div class="range-display">Before Range: <span id="before-range-display">None</span></div>
-                <div class="range-display">After Range: <span id="after-range-display">None</span></div>
-                <div class="controls" style="margin-top: 10px;">
-                    <button id="run-button" disabled>Run Test</button>
-                </div>
-            </div>
-            <div id="status-message" style="margin-top: 1em;"></div>
-        </div>
-
-        <div class="panel spreadsheet-panel">
-            <div id="spreadsheet-container"></div>
-        </div>
-        
         <div class="panel output-panel">
             <h2>Output Window</h2>
             <div id="outputs" style="display: none;">
@@ -110,9 +52,25 @@
             </div>
         </div>
 
+        <div class="panel spreadsheet-panel">
+            <div id="spreadsheet-container"></div>
+        </div>
+
+        <div class="panel controls-panel">
+            <div id="analysis-section">
+                <h3>Plotonium</h3>
+                <p>Highlight your 'Before' data, then highlight your 'After' data, then click Run Test.</p>
+                <h4>Run Paired Comparison</h4>
+                <div class="range-display">Before Range: <span id="before-range-display">None</span></div>
+                <div class="range-display">After Range: <span id="after-range-display">None</span></div>
+                <div class="controls" style="margin-top: 10px;">
+                    <button id="run-button" disabled>Run Test</button>
+                </div>
+            </div>
+            <div id="status-message" style="margin-left: 2em; margin-top: 1em;"></div>
+        </div>
     </div>
-
+    
     <script src="js/main.js" type="module"></script>
-
 </body>
 </html>
