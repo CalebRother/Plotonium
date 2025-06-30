@@ -1,4 +1,3 @@
-// This file should have an import statement at the top
 import { WebR } from 'https://webr.r-wasm.org/latest/webr.mjs';
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -10,20 +9,16 @@ document.addEventListener('DOMContentLoaded', () => {
     const spreadsheetContainer = document.getElementById('spreadsheet-container');
     const runButton = document.getElementById('run-button');
     const statusMessage = document.getElementById('status-message');
-    const outputsDiv = document.getElementById('outputs'); 
+    const outputsDiv = document.getElementById('outputs');
     const plotCanvas = document.getElementById('plot-canvas');
     const statsOutput = document.getElementById('stats-output');
-    
+    const beforeRangeDisplay = document.getElementById('before-range-display');
+    const afterRangeDisplay = document.getElementById('after-range-display');
     const importCsvMenu = document.getElementById('import-csv-menu');
     const exportCsvMenu = document.getElementById('export-csv-menu');
     const addRowMenu = document.getElementById('add-row-menu');
     const addColMenu = document.getElementById('add-col-menu');
     const clearTableMenu = document.getElementById('clear-table-menu');
-
-    // Add back the other element references here if they were removed
-    const beforeRangeDisplay = document.getElementById('before-range-display');
-    const afterRangeDisplay = document.getElementById('after-range-display');
-
 
     let selections = [];
 
@@ -51,9 +46,8 @@ document.addEventListener('DOMContentLoaded', () => {
             updateRangeDisplays();
         }
     });
-    
+
     function updateRangeDisplays() {
-        if (!beforeRangeDisplay || !afterRangeDisplay) return; // Guard clause
         if (selections.length === 0) {
             beforeRangeDisplay.textContent = 'None';
             afterRangeDisplay.textContent = 'None';
@@ -143,7 +137,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         runButton.disabled = true;
-        statusMessage.innerText = "Processing data and running analysis...";
+        statusMessage.innerText = "Processing data...";
         outputsDiv.style.display = 'none';
 
         const shelter = await new webR.Shelter();
@@ -162,6 +156,7 @@ document.addEventListener('DOMContentLoaded', () => {
                  return;
             }
             
+            statusMessage.innerText = "Running analysis...";
             const rCommand = `
                 before_vals <- c(${beforeData.join(',')})
                 after_vals <- c(${afterData.join(',')})
@@ -177,7 +172,6 @@ document.addEventListener('DOMContentLoaded', () => {
             const result = await shelter.captureR(rCommand);
             
             try {
-                // Handle the plot
                 const plots = result.images;
                 if (plots.length > 0) {
                     const plot = plots[0]; 
@@ -187,15 +181,12 @@ document.addEventListener('DOMContentLoaded', () => {
                     ctx.drawImage(plot, 0, 0);
                 }
 
-                // Handle the text output
-                const textOutput = result.messages
-                    .filter(msg => msg.type === 'stdout' || msg.type === 'stderr')
-                    .map(msg => msg.data)
-                    .join('\\n');
-                
+                // --- THIS IS THE FIX ---
+                // The result object has stdout and stderr properties directly.
+                // We combine them to get all text output.
+                const textOutput = result.stdout + '\n' + result.stderr;
                 statsOutput.innerText = textOutput.trim();
                 
-                // Make the entire output container visible
                 outputsDiv.style.display = 'block';
 
             } finally {
@@ -212,5 +203,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
+    // Start the main application logic
     main();
 });
