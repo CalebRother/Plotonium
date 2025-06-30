@@ -85,7 +85,7 @@ document.addEventListener('DOMContentLoaded', () => {
             statusMessage.innerText = "Initializing WebR...";
             await webR.init();
             statusMessage.innerText = "Installing R packages...";
-            await webR.evalR("webr::install(c('dplyr', 'rlang', 'ggplot2', 'tidyr', 'rstatix', 'scales'))");
+            await webR.evalR("webr::install(c('dplyr', 'rlang', 'ggplot2', 'tidyr', 'rstatix', 'scales', 'ggpubr'))");
             
             statusMessage.innerText = "Loading R functions from file...";
             const response = await fetch(`r/paired_comparison.R?v=${new Date().getTime()}`);
