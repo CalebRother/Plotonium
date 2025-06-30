@@ -29,43 +29,27 @@
         button:disabled { cursor: not-allowed; background-color: #ccc; }
         .range-display { margin-bottom: 10px; }
         .range-display span { font-weight: bold; font-family: monospace; padding: 2px 5px; background-color: #eee; border-radius: 4px; }
+        /* --- NEW: Style for the plot canvas --- */
+        #plot-canvas { max-width: 100%; }
     </style>
 </head>
 <body>
     <nav class="top-toolbar">
-        <ul>
-            <li><a href="#">File</a><ul><li><a href="#" id="import-csv-menu">Import CSV</a></li><li><a href="#" id="export-csv-menu">Export CSV</a></li></ul></li>
-            <li><a href="#">View</a><ul><li><a href="#">Zoom In (soon)</a></li><li><a href="#">Zoom Out (soon)</a></li></ul></li>
-            <li><a href="#">Sheet</a><ul><li><a href="#" id="add-row-menu">Add Row</a></li><li><a href="#" id="add-col-menu">Add Column</a></li><li><a href="#" id="clear-table-menu">Clear Table</a></li></ul></li>
-        </ul>
-    </nav>
+        </nav>
     <input type="file" id="csv-file-input" accept=".csv" style="display: none;">
     <div class="app-container">
         <div class="panel controls-panel">
-            <h2>Plotonium</h2>
-            <p>Highlight your 'Before' data, then highlight your 'After' data, then click Run Test.</p>
-            <div id="analysis-section">
-                <h4>Run Paired Comparison</h4>
-                <div class="range-display">Before Range: <span id="before-range-display">None</span></div>
-                <div class="range-display">After Range: <span id="after-range-display">None</span></div>
-                
-                <div class="controls" style="margin-top: 10px;">
-                    <button id="run-button" disabled>Run Test</button>
-                </div>
             </div>
-            <div id="status-message" style="margin-top: 1em;"></div>
-            <div id="outputs" style="display: none;">
-                <h2>Results</h2>
-                <div id="plot-output"></div>
-                <h4>Statistical Summary</h4>
-                <pre><code id="stats-output"></code></pre>
-            </div>
-        </div>
         <div class="panel spreadsheet-panel">
             <div id="spreadsheet-container"></div>
         </div>
         <div class="panel output-panel">
-            <div id="outputs-container"></div>
+            <div id="outputs" style="display: none;">
+                <h2>Results</h2>
+                <canvas id="plot-canvas"></canvas>
+                <h4>Statistical Summary</h4>
+                <pre><code id="stats-output"></code></pre>
+            </div>
         </div>
     </div>
     <script src="js/main.js" type="module"></script>
