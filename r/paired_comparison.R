@@ -2,9 +2,9 @@
 library(dplyr)
 library(rlang)
 library(ggplot2)
-library(tidyr)
 library(rstatix)
 library(scales)
+library(ggpubr) # Added for stat_compare_means
 
 paired_comparison <- function(data, before_col, after_col, parametric = FALSE, plot_title = NULL, xlab = NULL, ylab = "Value", before_label = NULL, after_label = NULL, show_paired_lines = TRUE, before_color = NULL, after_color = NULL) {
   
@@ -12,8 +12,10 @@ paired_comparison <- function(data, before_col, after_col, parametric = FALSE, p
   after_str <- rlang::as_name(rlang::enquo(after_col))
   
   data$subject_id <- 1:nrow(data)
+  
   data_clean <- data
   data_clean$difference <- data_clean[[after_str]] - data_clean[[before_str]]
+  
   data_subset <- data_clean[, c("subject_id", before_str, after_str, "difference")]
   data_clean <- na.omit(data_subset)
   
@@ -24,6 +26,8 @@ paired_comparison <- function(data, before_col, after_col, parametric = FALSE, p
   set.seed(42)
   data_clean$x_jitter <- runif(nrow(data_clean), min = -0.2, max = 0.2)
   
+  # --- Perform the Statistical Test ---
+  # The statistical test itself doesn't change
   if (parametric) {
     stats_res <- data_clean %>% rstatix::t_test(difference ~ 1, mu = 0)
     test_name <- "Paired t-Test"
@@ -32,7 +36,7 @@ paired_comparison <- function(data, before_col, after_col, parametric = FALSE, p
     test_name <- "Wilcoxon Signed-Rank Test"
   }
   
-  # --- Reshape data using more robust Base R functions ---
+  # --- Reshape data using Base R ---
   df_before <- data.frame(subject_id = data_clean$subject_id, time = before_str, value = data_clean[[before_str]], x_jitter = data_clean$x_jitter)
   df_after <- data.frame(subject_id = data_clean$subject_id, time = after_str, value = data_clean[[after_str]], x_jitter = data_clean$x_jitter)
   data_long <- rbind(df_before, df_after)
@@ -42,39 +46,40 @@ paired_comparison <- function(data, before_col, after_col, parametric = FALSE, p
     levels(data_long$time) <- c(before_label, after_label)
   }
   
+  # --- Build the Plot ---
   if (is.null(plot_title)) plot_title <- paste("Change from", before_str, "to", after_str)
   if (is.null(xlab)) xlab <- "Time Point"
   
-  # --- THIS IS THE FIX: Using the robust p_format() function ---
-  p_value_formatted <- stats_res %>% rstatix::p_format(p, add.p = TRUE)
-  plot_subtitle <- paste(test_name, ", ", p_value_formatted, sep = "")
+  # We no longer need to manually create the subtitle, as stat_compare_means will do it
   
-  p <- ggplot2::ggplot(data_long, ggplot2::aes(y = value))
+  p <- ggplot2::ggplot(data_long, ggplot2::aes(x = time, y = value))
   
   if (show_paired_lines) {
     p <- p + ggplot2::geom_line(
-      ggplot2::aes(x = as.numeric(time) + x_jitter, group = subject_id),
+      ggplot2::aes(group = subject_id),
       color = "grey70", alpha = 0.5
     )
   }
   
-  p <- p + ggplot2::geom_point(
-    ggplot2::aes(x = as.numeric(time) + x_jitter, color = time),
-    alpha = 0.8
-  )
+  # We now add the boxplot and jitter points directly
+  p <- p +
+    ggplot2::geom_boxplot(ggplot2::aes(fill = time), alpha = 0.7, outlier.shape = NA) +
+    ggplot2::geom_jitter(ggplot2::aes(color = time), width = 0.1, alpha = 0.8)
   
-  p <- p + ggplot2::geom_boxplot(
-    ggplot2::aes(x = as.numeric(time), fill = time, group = time),
-    alpha = 0.7, outlier.shape = NA
+  # --- THIS IS THE NEW PART THAT ADDS SIGNIFICANCE ---
+  p <- p + ggpubr::stat_compare_means(
+    method = if (parametric) "t.test" else "wilcox.test",
+    paired = TRUE,
+    comparisons = list(c(before_str, after_str)),
+    label = "p.signif" # Use "p.format" to show the p-value, or "p.signif" for stars
   )
   
   p <- p +
     ggplot2::theme_minimal() +
     ggplot2::theme(legend.position = "none") +
-    ggplot2::scale_x_continuous(breaks = 1:2, labels = levels(data_long$time)) +
     ggplot2::labs(
       title = plot_title,
-      subtitle = plot_subtitle,
+      subtitle = test_name, # Set the subtitle to the test name
       x = xlab,
       y = ylab
     )
