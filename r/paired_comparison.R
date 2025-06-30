@@ -4,7 +4,7 @@ library(rlang)
 library(ggplot2)
 library(rstatix)
 library(scales)
-library(ggpubr) # For stat_pvalue_manual
+library(ggpubr)
 
 paired_comparison <- function(data, before_col, after_col, parametric = FALSE, plot_title = NULL, xlab = NULL, ylab = "Value", before_label = NULL, after_label = NULL, show_paired_lines = TRUE, before_color = NULL, after_color = NULL) {
   
@@ -45,9 +45,9 @@ paired_comparison <- function(data, before_col, after_col, parametric = FALSE, p
     levels(data_long$time) <- c(before_label, after_label)
   }
   
-  # --- THIS IS THE FIX: Add the significance symbols to our stats table ---
+  # Prepare the p-value for plotting
   stat.test <- stats_res %>%
-    rstatix::add_significance("p") %>% # Creates the p.signif column
+    rstatix::add_significance("p") %>%
     rstatix::add_xy_position(x = "time") %>%
     mutate(y.position = max(data_long$value) * 1.05) 
 
@@ -71,7 +71,6 @@ paired_comparison <- function(data, before_col, after_col, parametric = FALSE, p
       alpha = 0.8
   )
   
-  # Now this function will correctly find the p.signif column
   p <- p + ggpubr::stat_pvalue_manual(
     stat.test,
     label = "p.signif",
@@ -90,7 +89,10 @@ paired_comparison <- function(data, before_col, after_col, parametric = FALSE, p
       subtitle = test_name,
       x = xlab,
       y = ylab
-    )
+    ) +
+    # --- THIS IS THE FIX: Expand plot limits to make room for the bracket ---
+    ggplot2::scale_y_continuous(expand = expansion(mult = c(0.05, 0.1)))
+
   
   if (!is.null(before_color) && !is.null(after_color)) {
     level_names <- levels(data_long$time)
