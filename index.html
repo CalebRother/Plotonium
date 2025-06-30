@@ -18,13 +18,14 @@
             display: flex;
             flex-direction: column;
             height: 100vh;
+            overflow: hidden; /* Prevent body from scrolling */
         }
         
-        /* --- NEW: Toolbar Styles --- */
         .top-toolbar {
             background-color: #fff;
             border-bottom: 1px solid #ddd;
             padding: 0 1em;
+            flex-shrink: 0; /* Prevent toolbar from shrinking */
         }
         .top-toolbar ul {
             list-style: none;
@@ -59,35 +60,40 @@
             width: 100%;
         }
 
+        /* --- NEW: CSS Grid Layout for the main app --- */
         .app-container {
             display: grid;
-            grid-template-columns: 350px 1fr;
+            /* Define 2 columns and 2 rows */
+            grid-template-columns: 400px 1fr;
+            grid-template-rows: 60fr 40fr; /* Top panels take 60%, bottom takes 40% */
+            /* Name the grid areas for easy placement */
+            grid-template-areas:
+                "controls spreadsheet"
+                "output   output";
+            flex-grow: 1;
             gap: 1em;
             padding: 1em;
             box-sizing: border-box;
-            flex-grow: 1; /* Allows container to fill remaining space */
             overflow: hidden;
         }
-        .left-panel {
+        
+        /* --- NEW: Styles for each panel --- */
+        .panel {
             display: flex;
             flex-direction: column;
-            gap: 1em;
+            background-color: #fff;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            overflow: auto; /* Add scrollbars if content overflows */
             padding: 1em;
-            background-color: #fff;
-            border: 1px solid #ddd;
-            border-radius: 8px;
-            overflow-y: auto;
         }
-        .right-panel {
-            display: flex;
-            flex-direction: column;
-            background-color: #fff;
-            border: 1px solid #ddd;
-            border-radius: 8px;
-        }
+        .controls-panel   { grid-area: controls; }
+        .spreadsheet-panel { grid-area: spreadsheet; padding: 0; } /* No padding for spreadsheet div */
+        .output-panel     { grid-area: output; }
+        
         #spreadsheet-container {
             width: 100%;
-            flex-grow: 1;
+            height: 100%; /* Make spreadsheet fill its panel */
             overflow: hidden;
         }
         pre { background-color: #f4f4f4; padding: 1em; white-space: pre-wrap; word-wrap: break-word; }
@@ -126,9 +132,15 @@
 
 
     <div class="app-container">
-        <div class="left-panel">
+        <div class="panel controls-panel">
             <h2>Plotonium</h2>
             <p>An open-source data analysis tool.</p>
+
+            <div id="data-controls">
+                <h4>Data Input</h4>
+                <div class="controls">
+                    </div>
+            </div>
 
             <div id="analysis-section">
                 <h4>Run Paired Comparison</h4>
@@ -144,19 +156,20 @@
                     <button id="run-button" disabled>Run Test</button>
                 </div>
             </div>
-    
             <div id="status-message" style="margin-top: 1em;"></div>
+        </div>
 
+        <div class="panel spreadsheet-panel">
+            <div id="spreadsheet-container"></div>
+        </div>
+
+        <div class="panel output-panel">
             <div id="outputs" style="display: none;">
-                <h3>Results</h3>
+                <h2>Results</h2>
                 <div id="plot-output"></div>
                 <h4>Statistical Summary</h4>
                 <pre><code id="stats-output"></code></pre>
             </div>
-        </div>
-
-        <div class="right-panel">
-            <div id="spreadsheet-container"></div>
         </div>
     </div>
 
