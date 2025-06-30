@@ -45,8 +45,9 @@ paired_comparison <- function(data, before_col, after_col, parametric = FALSE, p
     levels(data_long$time) <- c(before_label, after_label)
   }
   
-  # Prepare the p-value for plotting
+  # --- THIS IS THE FIX: Add the significance symbols to our stats table ---
   stat.test <- stats_res %>%
+    rstatix::add_significance("p") %>% # Creates the p.signif column
     rstatix::add_xy_position(x = "time") %>%
     mutate(y.position = max(data_long$value) * 1.05) 
 
@@ -70,12 +71,11 @@ paired_comparison <- function(data, before_col, after_col, parametric = FALSE, p
       alpha = 0.8
   )
   
-  # --- THIS IS THE FIX: Use ggpubr::stat_pvalue_manual ---
+  # Now this function will correctly find the p.signif column
   p <- p + ggpubr::stat_pvalue_manual(
     stat.test,
     label = "p.signif",
     tip.length = 0.01,
-    # Add the custom significance map here
     symnum.args = list(
         cutpoints = c(0, 0.0001, 0.001, 0.01, 0.05, 1),
         symbols = c("****", "***", "**", "*", "ns")
