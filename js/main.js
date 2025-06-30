@@ -57,21 +57,41 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    // --- NEW: A custom-built, robust function to parse A1 notation ---
     function parseA1Range(rangeStr) {
         try {
-            const [start, end] = rangeStr.split(':');
-            const startCoords = Handsontable.helper.cellCoords(start);
-            const endCoords = end ? Handsontable.helper.cellCoords(end) : startCoords;
+            const colToIdx = (col) => col.split('').reduce((acc, val) => acc * 26 + val.charCodeAt(0) - 64, 0) - 1;
+            
+            const [start, end] = rangeStr.toUpperCase().split(':');
+            
+            const startMatch = start.match(/^([A-Z]+)(\d+)$/);
+            if (!startMatch) return null;
+            
+            const startCol = colToIdx(startMatch[1]);
+            const startRow = parseInt(startMatch[2], 10) - 1;
+
+            if (!end) { // Single cell range like "A1"
+                return { startRow, startCol, endRow: startRow, endCol: startCol };
+            }
+
+            const endMatch = end.match(/^([A-Z]+)(\d+)$/);
+            if (!endMatch) return null;
+
+            const endCol = colToIdx(endMatch[1]);
+            const endRow = parseInt(endMatch[2], 10) - 1;
+
             return {
-                startRow: Math.min(startCoords.row, endCoords.row),
-                endRow: Math.max(startCoords.row, endCoords.row),
-                startCol: Math.min(startCoords.col, endCoords.col),
-                endCol: Math.max(startCoords.col, endCoords.col),
+                startRow: Math.min(startRow, endRow),
+                startCol: Math.min(startCol, endCol),
+                endRow: Math.max(startRow, endRow),
+                endCol: Math.max(startCol, endCol),
             };
         } catch (e) {
+            console.error("Error parsing range:", e);
             return null;
         }
     }
+
 
     async function main() {
         try {
@@ -112,7 +132,7 @@ document.addEventListener('DOMContentLoaded', () => {
     importCsvMenu.addEventListener('click', (e) => { e.preventDefault(); fileInput.click(); });
     // ... other menu event listeners ...
     
-    // --- The Run Button logic is now more robust ---
+    // The Run Button logic remains the same, but will now use our new parser
     runButton.addEventListener('click', async () => {
         const beforeRangeStr = beforeRangeInput.value.trim();
         const afterRangeStr = afterRangeInput.value.trim();
@@ -128,7 +148,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const shelter = await new webR.Shelter();
         try {
-            // Get data from the text boxes by parsing the A1-style strings
+            // This now uses our new, robust parser
             const beforeRange = parseA1Range(beforeRangeStr);
             const afterRange = parseA1Range(afterRangeStr);
 
