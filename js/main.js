@@ -12,19 +12,17 @@ document.addEventListener('DOMContentLoaded', () => {
     const outputsDiv = document.getElementById('outputs');
     const plotCanvas = document.getElementById('plot-canvas');
     const statsOutput = document.getElementById('stats-output');
-    const beforeRangeInput = document.getElementById('before-range-input');
-    const setBeforeButton = document.getElementById('set-before-button');
-    const afterRangeInput = document.getElementById('after-range-input');
-    const setAfterButton = document.getElementById('set-after-button');
+    const beforeRangeDisplay = document.getElementById('before-range-display');
+    const afterRangeDisplay = document.getElementById('after-range-display');
     const importCsvMenu = document.getElementById('import-csv-menu');
     const exportCsvMenu = document.getElementById('export-csv-menu');
     const addRowMenu = document.getElementById('add-row-menu');
     const addColMenu = document.getElementById('add-col-menu');
     const clearTableMenu = document.getElementById('clear-table-menu');
-    
-    // The reference to the checkbox is now removed
+    const parametricCheckbox = document.getElementById('parametric-checkbox');
 
-    let lastSelection = null;
+
+    let selections = [];
 
     const hot = new Handsontable(spreadsheetContainer, {
         startRows: 1000,
@@ -37,9 +35,18 @@ document.addEventListener('DOMContentLoaded', () => {
         contextMenu: true,
         afterSelectionEnd: (r, c, r2, c2) => {
             const selection = { startRow: Math.min(r, r2), endRow: Math.max(r, r2), startCol: Math.min(c, c2), endCol: Math.max(c, c2) };
-            lastSelection = selection;
+            selections.push(selection);
+            if (selections.length > 2) selections.shift();
+            updateRangeDisplays();
         }
     });
+
+    function updateRangeDisplays() {
+        if (!beforeRangeDisplay || !afterRangeDisplay) return;
+        if (selections.length === 0) { beforeRangeDisplay.textContent = 'None'; afterRangeDisplay.textContent = 'None'; } 
+        else if (selections.length === 1) { beforeRangeDisplay.textContent = getA1Notation(selections[0]); afterRangeDisplay.textContent = 'None'; } 
+        else { beforeRangeDisplay.textContent = getA1Notation(selections[1]); afterRangeDisplay.textContent = getA1Notation(selections[0]); }
+    }
 
     function getA1Notation(selection) {
         const startCol = hot.getColHeader(selection.startCol);
@@ -83,6 +90,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+
     async function main() {
         try {
             statusMessage.innerText = "Initializing WebR...";
@@ -103,31 +111,12 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    setBeforeButton.addEventListener('click', () => {
-        if (lastSelection) {
-            beforeRangeInput.value = getA1Notation(lastSelection);
-        } else {
-            alert("Please select a range of cells in the spreadsheet first.");
-        }
-    });
-
-    setAfterButton.addEventListener('click', () => {
-        if (lastSelection) {
-            afterRangeInput.value = getA1Notation(lastSelection);
-        } else {
-            alert("Please select a range of cells in the spreadsheet first.");
-        }
-    });
-
     importCsvMenu.addEventListener('click', (e) => { e.preventDefault(); fileInput.click(); });
     // ... other menu event listeners ...
     
     runButton.addEventListener('click', async () => {
-        const beforeRangeStr = beforeRangeInput.value.trim();
-        const afterRangeStr = afterRangeInput.value.trim();
-
-        if (!beforeRangeStr || !afterRangeStr) {
-            alert("Please set both 'Before' and 'After' ranges.");
+        if (selections.length < 2) {
+            alert("Please select two data ranges in the spreadsheet.");
             return;
         }
 
@@ -137,17 +126,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const shelter = await new webR.Shelter();
         try {
-            const beforeRange = parseA1Range(beforeRangeStr);
-            const afterRange = parseA1Range(afterRangeStr);
-
-            if (!beforeRange || !afterRange) {
-                 alert("Error: Invalid range format. Please use standard spreadsheet notation (e.g., 'A1' or 'B2:B61').");
-                 runButton.disabled = false;
-                 statusMessage.innerText = "Ready.";
-                 await shelter.purge();
-                 return;
-            }
-
+            const afterRange = selections[0];
+            const beforeRange = selections[1];
             const beforeData = hot.getData(beforeRange.startRow, beforeRange.startCol, beforeRange.endRow, beforeRange.endCol).flat().filter(v => v !== null && v !== '');
             const afterData = hot.getData(afterRange.startRow, afterRange.startCol, afterRange.endRow, afterRange.endCol).flat().filter(v => v !== null && v !== '');
 
@@ -159,19 +139,18 @@ document.addEventListener('DOMContentLoaded', () => {
                  return;
             }
             
-            // --- FIX: Removed reference to the non-existent checkbox ---
+            const isParametric = parametricCheckbox.checked;
             statusMessage.innerText = "Running analysis...";
             const rCommand = `
                 before_vals <- c(${beforeData.join(',')})
                 after_vals <- c(${afterData.join(',')})
                 data <- data.frame(before_col = before_vals, after_col = after_vals)
                 
-                # We default to a non-parametric test for now
                 paired_comparison(
                     data = data, 
                     before_col = before_col, 
                     after_col = after_col,
-                    parametric = FALSE 
+                    parametric = ${isParametric ? 'TRUE' : 'FALSE'}
                 )
             `;
             
@@ -187,11 +166,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     ctx.drawImage(plot, 0, 0);
                 }
 
-                const textOutput = result.messages
-                    .filter(msg => msg.type === 'stdout' || msg.type === 'stderr')
-                    .map(msg => msg.data)
-                    .join('\n');
-                
+                // --- THIS IS THE CORRECT, ROBUST FIX ---
+                // The result object from captureR has stdout and stderr properties directly.
+                const textOutput = result.stdout + '\n' + result.stderr;
                 statsOutput.innerText = textOutput.trim();
                 
                 outputsDiv.style.display = 'block';
