@@ -1,6 +1,9 @@
 import { WebR } from 'https://webr.r-wasm.org/latest/webr.mjs';
 const webR = new WebR();
 
+import { WebR } from 'https://webr.r-wasm.org/latest/webr.mjs';
+const webR = new WebR();
+
 // --- Get references to all HTML elements ---
 const fileInput = document.getElementById('csv-file-input');
 const loadCsvButton = document.getElementById('load-csv-button');
@@ -19,12 +22,13 @@ const statsOutput = document.getElementById('stats-output');
 
 // --- Initialize the Handsontable spreadsheet ---
 const hot = new Handsontable(spreadsheetContainer, {
-    data: [['', ''], ['', '']], 
+    data: Handsontable.helper.createEmptySpreadsheetData(100, 26), // Start with a 100x26 grid
     rowHeaders: true,
-    colHeaders: ['Column A', 'Column B'],
-    height: 'auto',
-    width: 'auto',
+    colHeaders: true, // --- FIX: Use default 'A', 'B', 'C' headers ---
+    height: '100%',   // Fill the container
+    width: '100%',    // Fill the container
     minSpareRows: 1,
+    minSpareCols: 1,
     licenseKey: 'non-commercial-and-evaluation',
     contextMenu: true,
     afterChange: updateColumnSelectors,
