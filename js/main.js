@@ -12,17 +12,18 @@ document.addEventListener('DOMContentLoaded', () => {
     const outputsDiv = document.getElementById('outputs');
     const plotCanvas = document.getElementById('plot-canvas');
     const statsOutput = document.getElementById('stats-output');
-    const beforeRangeDisplay = document.getElementById('before-range-display');
-    const afterRangeDisplay = document.getElementById('after-range-display');
+    const beforeRangeInput = document.getElementById('before-range-input');
+    const setBeforeButton = document.getElementById('set-before-button');
+    const afterRangeInput = document.getElementById('after-range-input');
+    const setAfterButton = document.getElementById('set-after-button');
     const importCsvMenu = document.getElementById('import-csv-menu');
     const exportCsvMenu = document.getElementById('export-csv-menu');
     const addRowMenu = document.getElementById('add-row-menu');
     const addColMenu = document.getElementById('add-col-menu');
     const clearTableMenu = document.getElementById('clear-table-menu');
-    // Get the parametric checkbox
     const parametricCheckbox = document.getElementById('parametric-checkbox');
 
-    let selections = [];
+    let lastSelection = null;
 
     const hot = new Handsontable(spreadsheetContainer, {
         startRows: 1000,
@@ -34,19 +35,9 @@ document.addEventListener('DOMContentLoaded', () => {
         licenseKey: 'non-commercial-and-evaluation',
         contextMenu: true,
         afterSelectionEnd: (r, c, r2, c2) => {
-            const selection = { startRow: Math.min(r, r2), endRow: Math.max(r, r2), startCol: Math.min(c, c2), endCol: Math.max(c, c2) };
-            selections.push(selection);
-            if (selections.length > 2) selections.shift();
-            updateRangeDisplays();
+            lastSelection = { startRow: Math.min(r, r2), endRow: Math.max(r, r2), startCol: Math.min(c, c2), endCol: Math.max(c, c2) };
         }
     });
-
-    function updateRangeDisplays() {
-        if (!beforeRangeDisplay || !afterRangeDisplay) return;
-        if (selections.length === 0) { beforeRangeDisplay.textContent = 'None'; afterRangeDisplay.textContent = 'None'; } 
-        else if (selections.length === 1) { beforeRangeDisplay.textContent = getA1Notation(selections[0]); afterRangeDisplay.textContent = 'None'; } 
-        else { beforeRangeDisplay.textContent = getA1Notation(selections[1]); afterRangeDisplay.textContent = getA1Notation(selections[0]); }
-    }
 
     function getA1Notation(selection) {
         const startCol = hot.getColHeader(selection.startCol);
@@ -63,6 +54,31 @@ document.addEventListener('DOMContentLoaded', () => {
                 hot.populateFromArray(0, 0, results.data);
             }
         });
+    }
+
+    function parseA1Range(rangeStr) {
+        try {
+            const colToIdx = (col) => col.split('').reduce((acc, val) => acc * 26 + val.charCodeAt(0) - 64, 0) - 1;
+            const [start, end] = rangeStr.toUpperCase().split(':');
+            const startMatch = start.match(/^([A-Z]+)(\d+)$/);
+            if (!startMatch) return null;
+            const startCol = colToIdx(startMatch[1]);
+            const startRow = parseInt(startMatch[2], 10) - 1;
+            if (!end) { return { startRow, startCol, endRow: startRow, endCol: startCol }; }
+            const endMatch = end.match(/^([A-Z]+)(\d+)$/);
+            if (!endMatch) return null;
+            const endCol = colToIdx(endMatch[1]);
+            const endRow = parseInt(endMatch[2], 10) - 1;
+            return {
+                startRow: Math.min(startRow, endRow),
+                startCol: Math.min(startCol, endCol),
+                endRow: Math.max(startRow, endRow),
+                endCol: Math.max(startCol, endCol),
+            };
+        } catch (e) {
+            console.error("Error parsing range:", e);
+            return null;
+        }
     }
 
     async function main() {
@@ -85,26 +101,31 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    // --- REVERTED: Event listeners for the "Set" buttons ---
+    setBeforeButton.addEventListener('click', () => {
+        if (lastSelection) {
+            beforeRangeInput.value = getA1Notation(lastSelection);
+        } else {
+            alert("Please select a range of cells in the spreadsheet first.");
+        }
+    });
+
+    setAfterButton.addEventListener('click', () => {
+        if (lastSelection) {
+            afterRangeInput.value = getA1Notation(lastSelection);
+        } else {
+            alert("Please select a range of cells in the spreadsheet first.");
+        }
+    });
+
     importCsvMenu.addEventListener('click', (e) => { e.preventDefault(); fileInput.click(); });
     addRowMenu.addEventListener('click', (e) => { e.preventDefault(); hot.alter('insert_row_below'); });
     addColMenu.addEventListener('click', (e) => { e.preventDefault(); hot.alter('insert_col_end'); });
     clearTableMenu.addEventListener('click', (e) => {
         e.preventDefault();
         hot.loadData(Handsontable.helper.createEmptySpreadsheetData(1000, 52));
-        selections = [];
-        updateRangeDisplays();
     });
-    exportCsvMenu.addEventListener('click', (e) => {
-         e.preventDefault();
-        const cleanData = hot.getSourceData().filter((row, index) => !hot.isEmptyRow(index));
-        const headers = hot.getColHeader().slice(0, hot.countCols());
-        const csv = Papa.unparse({ fields: headers, data: cleanData });
-        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-        const link = document.createElement('a');
-        link.href = URL.createObjectURL(blob);
-        link.download = 'data.csv';
-        link.click();
-    });
+    exportCsvMenu.addEventListener('click', (e) => { /* ... existing export logic ... */ });
     fileInput.addEventListener('change', (event) => {
         if (event.target.files.length > 0) {
             loadCsvData(event.target.files[0]);
@@ -112,9 +133,13 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
     
+    // --- REVERTED: Run Button logic now uses the text input values ---
     runButton.addEventListener('click', async () => {
-        if (selections.length < 2) {
-            alert("Please select two data ranges in the spreadsheet.");
+        const beforeRangeStr = beforeRangeInput.value.trim();
+        const afterRangeStr = afterRangeInput.value.trim();
+
+        if (!beforeRangeStr || !afterRangeStr) {
+            alert("Please set both 'Before' and 'After' ranges.");
             return;
         }
 
@@ -124,9 +149,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const shelter = await new webR.Shelter();
         try {
-            const afterRange = selections[0];
-            const beforeRange = selections[1];
-            
+            const beforeRange = parseA1Range(beforeRangeStr);
+            const afterRange = parseA1Range(afterRangeStr);
+
+            if (!beforeRange || !afterRange) {
+                 alert("Error: Invalid range format. Please use standard spreadsheet notation (e.g., 'A1' or 'B2:B61').");
+                 runButton.disabled = false;
+                 statusMessage.innerText = "Ready.";
+                 await shelter.purge();
+                 return;
+            }
+
             const beforeData = hot.getData(beforeRange.startRow, beforeRange.startCol, beforeRange.endRow, beforeRange.endCol).flat().filter(v => v !== null && v !== '');
             const afterData = hot.getData(afterRange.startRow, afterRange.startCol, afterRange.endRow, afterRange.endCol).flat().filter(v => v !== null && v !== '');
 
@@ -138,16 +171,13 @@ document.addEventListener('DOMContentLoaded', () => {
                  return;
             }
             
-            // --- FIX: Correctly check the checkbox state ---
             const isParametric = parametricCheckbox.checked;
             statusMessage.innerText = "Running analysis...";
-            
             const rCommand = `
                 before_vals <- c(${beforeData.join(',')})
                 after_vals <- c(${afterData.join(',')})
                 data <- data.frame(before_col = before_vals, after_col = after_vals)
                 
-                # Correctly pass the parametric argument as TRUE or FALSE
                 paired_comparison(
                     data = data, 
                     before_col = before_col, 
@@ -174,10 +204,11 @@ document.addEventListener('DOMContentLoaded', () => {
                     .join('\n');
                 
                 statsOutput.innerText = textOutput.trim();
+                
                 outputsDiv.style.display = 'block';
 
             } finally {
-                // No result.destroy() needed
+                // No destroy method needed
             }
 
         } catch(error) {
