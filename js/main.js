@@ -21,6 +21,7 @@ const addRowMenu = document.getElementById('add-row-menu');
 const addColMenu = document.getElementById('add-col-menu');
 const clearTableMenu = document.getElementById('clear-table-menu');
 
+// This variable will hold the coordinates of the last mouse selection
 let lastSelection = null;
 
 // Initialize Handsontable
@@ -33,6 +34,7 @@ const hot = new Handsontable(spreadsheetContainer, {
     width: '100%',
     licenseKey: 'non-commercial-and-evaluation',
     contextMenu: true,
+    // This hook stores the coordinates of the user's selection
     afterSelection: (r, c, r2, c2) => {
         const startRow = Math.min(r, r2);
         const endRow = Math.max(r, r2);
@@ -42,6 +44,7 @@ const hot = new Handsontable(spreadsheetContainer, {
     }
 });
 
+// This function loads CSV data into the sheet
 function loadCsvData(file) {
     Papa.parse(file, {
         header: false,
@@ -53,7 +56,7 @@ function loadCsvData(file) {
     });
 }
 
-// Helper function to parse an A1-style range string (e.g., "B2:C10")
+// This helper function parses an A1-style range string into coordinates
 function parseA1Range(rangeStr) {
     try {
         const [start, end] = rangeStr.split(':');
@@ -66,7 +69,7 @@ function parseA1Range(rangeStr) {
             endCol: Math.max(startCoords.col, endCoords.col),
         };
     } catch (e) {
-        return null; // Return null if the range string is invalid
+        return null;
     }
 }
 
@@ -89,12 +92,15 @@ async function main() {
         statusMessage.innerText = "Error during startup. Check console.";
     }
 
-    // --- FIX: Using the correct hot.getColHeader() method ---
+    // --- Event listeners for "Set" buttons ---
+    // This logic is now corrected to use the right function
     setBeforeButton.addEventListener('click', () => {
         if (lastSelection) {
-            const startCol = hot.getColHeader(lastSelection.startCol);
-            const endCol = hot.getColHeader(lastSelection.endCol);
-            beforeRangeInput.value = `${startCol}${lastSelection.startRow + 1}:${endCol}${lastSelection.endRow + 1}`;
+            // Use the instance method `getColHeader()` to get the column letter
+            const startColName = hot.getColHeader(lastSelection.startCol);
+            const endColName = hot.getColHeader(lastSelection.endCol);
+            const rangeText = `${startColName}${lastSelection.startRow + 1}:${endColName}${lastSelection.endRow + 1}`;
+            beforeRangeInput.value = rangeText;
         } else {
             alert("Please select a range of cells in the spreadsheet first.");
         }
@@ -102,9 +108,10 @@ async function main() {
 
     setAfterButton.addEventListener('click', () => {
         if (lastSelection) {
-            const startCol = hot.getColHeader(lastSelection.startCol);
-            const endCol = hot.getColHeader(lastSelection.endCol);
-            afterRangeInput.value = `${startCol}${lastSelection.startRow + 1}:${endCol}${lastSelection.endRow + 1}`;
+            const startColName = hot.getColHeader(lastSelection.startCol);
+            const endColName = hot.getColHeader(lastSelection.endCol);
+            const rangeText = `${startColName}${lastSelection.startRow + 1}:${endColName}${lastSelection.endRow + 1}`;
+            afterRangeInput.value = rangeText;
         } else {
             alert("Please select a range of cells in the spreadsheet first.");
         }
@@ -118,7 +125,16 @@ async function main() {
         e.preventDefault();
         hot.loadData(Handsontable.helper.createEmptySpreadsheetData(1000, 52));
     });
-    exportCsvMenu.addEventListener('click', (e) => { /* ... existing export logic ... */ });
+    exportCsvMenu.addEventListener('click', (e) => {
+        e.preventDefault();
+        const dataToExport = hot.getSourceData(0,0,hot.countRows()-1, hot.countCols()-1);
+        const csv = Papa.unparse(dataToExport, { header: true });
+        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = 'data.csv';
+        link.click();
+    });
     fileInput.addEventListener('change', (event) => {
         if (event.target.files.length > 0) {
             loadCsvData(event.target.files[0]);
@@ -126,7 +142,7 @@ async function main() {
         }
     });
     
-    // --- FIX: Run button logic now correctly uses the parsed ranges ---
+    // Run button logic
     runButton.addEventListener('click', async () => {
         const beforeRangeStr = beforeRangeInput.value.trim();
         const afterRangeStr = afterRangeInput.value.trim();
@@ -142,7 +158,7 @@ async function main() {
 
         const shelter = await new webR.Shelter();
         try {
-            // Get data from the text boxes, not the mouse selection
+            // Get data from the text boxes by parsing the A1-style strings
             const beforeRange = parseA1Range(beforeRangeStr);
             const afterRange = parseA1Range(afterRangeStr);
 
@@ -154,6 +170,7 @@ async function main() {
                  return;
             }
 
+            // Get data from the sheet using the parsed coordinates
             const beforeData = hot.getData(beforeRange.startRow, beforeRange.startCol, beforeRange.endRow, beforeRange.endCol).flat().filter(v => v !== null && v !== '');
             const afterData = hot.getData(afterRange.startRow, afterRange.startCol, afterRange.endRow, afterRange.endCol).flat().filter(v => v !== null && v !== '');
 
