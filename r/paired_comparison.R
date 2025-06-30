@@ -27,7 +27,6 @@ paired_comparison <- function(data, before_col, after_col, parametric = FALSE, p
   data_clean$x_jitter <- runif(nrow(data_clean), min = -0.2, max = 0.2)
   
   # --- Perform the Statistical Test ---
-  # The statistical test itself doesn't change
   if (parametric) {
     stats_res <- data_clean %>% rstatix::t_test(difference ~ 1, mu = 0)
     test_name <- "Paired t-Test"
@@ -50,8 +49,6 @@ paired_comparison <- function(data, before_col, after_col, parametric = FALSE, p
   if (is.null(plot_title)) plot_title <- paste("Change from", before_str, "to", after_str)
   if (is.null(xlab)) xlab <- "Time Point"
   
-  # We no longer need to manually create the subtitle, as stat_compare_means will do it
-  
   p <- ggplot2::ggplot(data_long, ggplot2::aes(x = time, y = value))
   
   if (show_paired_lines) {
@@ -61,17 +58,20 @@ paired_comparison <- function(data, before_col, after_col, parametric = FALSE, p
     )
   }
   
-  # We now add the boxplot and jitter points directly
   p <- p +
     ggplot2::geom_boxplot(ggplot2::aes(fill = time), alpha = 0.7, outlier.shape = NA) +
     ggplot2::geom_jitter(ggplot2::aes(color = time), width = 0.1, alpha = 0.8)
   
-  # --- THIS IS THE NEW PART THAT ADDS SIGNIFICANCE ---
+  # --- THIS IS THE UPDATED SIGNIFICANCE SECTION ---
   p <- p + ggpubr::stat_compare_means(
     method = if (parametric) "t.test" else "wilcox.test",
     paired = TRUE,
     comparisons = list(c(before_str, after_str)),
-    label = "p.signif" # Use "p.format" to show the p-value, or "p.signif" for stars
+    # Define the custom map from p-values to symbols
+    symnum.args = list(
+        cutpoints = c(0, 0.0001, 0.001, 0.01, 0.05, 1),
+        symbols = c("****", "***", "**", "*", "ns")
+    )
   )
   
   p <- p +
@@ -79,7 +79,7 @@ paired_comparison <- function(data, before_col, after_col, parametric = FALSE, p
     ggplot2::theme(legend.position = "none") +
     ggplot2::labs(
       title = plot_title,
-      subtitle = test_name, # Set the subtitle to the test name
+      subtitle = test_name,
       x = xlab,
       y = ylab
     )
