@@ -92,10 +92,21 @@ async function main() {
         statusMessage.innerText = "Installing R packages...";
         await webR.evalR("webr::install(c('dplyr', 'rlang', 'ggplot2', 'tidyr', 'rstatix', 'scales'))");
         
-        // --- REVERTING TO THE CLEAN SOURCE() METHOD ---
-        // Now that all pathing/caching issues are solved, this is the correct way.
         statusMessage.innerText = "Loading R functions from file...";
-        await webR.evalR("source('r/paired_comparison.R')");
+        
+        // --- THE ROBUST SOLUTION ---
+        // 1. Fetch the R script file as plain text.
+        const response = await fetch('r/paired_comparison.R');
+        if (!response.ok) {
+            throw new Error(`Failed to fetch R script: ${response.status}`);
+        }
+        let rScriptText = await response.text();
+
+        // 2. Clean the text to remove problematic line endings.
+        rScriptText = rScriptText.replace(/\r/g, '');
+
+        // 3. Execute the cleaned script text.
+        await webR.evalR(rScriptText);
         
         statusMessage.innerText = "Ready.";
         runButton.disabled = false;
@@ -111,15 +122,12 @@ async function main() {
     addRowButton.addEventListener('click', () => { hot.alter('insert_row_below'); });
     addColButton.addEventListener('click', () => {
         const numCols = hot.countCols();
-        const newHeader = `Column ${String.fromCharCode(65 + numCols)}`;
         hot.alter('insert_col', numCols);
-        const headers = hot.getColHeader();
-        headers[numCols] = newHeader;
-        hot.updateSettings({ colHeaders: headers });
+        // Handsontable's default header naming is sufficient
     });
     clearTableButton.addEventListener('click', () => {
-        hot.loadData([["", ""]]);
-        hot.updateSettings({ colHeaders: ["Column A", "Column B"] });
+        hot.loadData([['', ''], ['', '']]);
+        hot.updateSettings({ colHeaders: ['Column A', 'Column B'], columns: [{}, {}] });
     });
     exportCsvButton.addEventListener('click', () => {
         const data = hot.getData();
@@ -139,13 +147,8 @@ async function main() {
         }
     });
 
-    spreadsheetContainer.addEventListener('dragover', (e) => {
-        e.preventDefault();
-        spreadsheetContainer.classList.add('dragover');
-    });
-    spreadsheetContainer.addEventListener('dragleave', () => {
-        spreadsheetContainer.classList.remove('dragover');
-    });
+    spreadsheetContainer.addEventListener('dragover', (e) => { e.preventDefault(); spreadsheetContainer.classList.add('dragover'); });
+    spreadsheetContainer.addEventListener('dragleave', () => { spreadsheetContainer.classList.remove('dragover'); });
     spreadsheetContainer.addEventListener('drop', (e) => {
         e.preventDefault();
         spreadsheetContainer.classList.remove('dragover');
