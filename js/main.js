@@ -1,9 +1,6 @@
 import { WebR } from 'https://webr.r-wasm.org/latest/webr.mjs';
 const webR = new WebR();
 
-import { WebR } from 'https://webr.r-wasm.org/latest/webr.mjs';
-const webR = new WebR();
-
 // --- Get references to all HTML elements ---
 const fileInput = document.getElementById('csv-file-input');
 const loadCsvButton = document.getElementById('load-csv-button');
@@ -22,11 +19,11 @@ const statsOutput = document.getElementById('stats-output');
 
 // --- Initialize the Handsontable spreadsheet ---
 const hot = new Handsontable(spreadsheetContainer, {
-    data: Handsontable.helper.createEmptySpreadsheetData(100, 26), // Start with a 100x26 grid
+    data: Handsontable.helper.createEmptySpreadsheetData(100, 26),
     rowHeaders: true,
-    colHeaders: true, // --- FIX: Use default 'A', 'B', 'C' headers ---
-    height: '100%',   // Fill the container
-    width: '100%',    // Fill the container
+    colHeaders: true,
+    height: '100%',
+    width: '100%',
     minSpareRows: 1,
     minSpareCols: 1,
     licenseKey: 'non-commercial-and-evaluation',
@@ -97,19 +94,12 @@ async function main() {
         await webR.evalR("webr::install(c('dplyr', 'rlang', 'ggplot2', 'tidyr', 'rstatix', 'scales'))");
         
         statusMessage.innerText = "Loading R functions from file...";
-        
-        // --- THE ROBUST SOLUTION ---
-        // 1. Fetch the R script file as plain text.
         const response = await fetch('r/paired_comparison.R');
         if (!response.ok) {
             throw new Error(`Failed to fetch R script: ${response.status}`);
         }
         let rScriptText = await response.text();
-
-        // 2. Clean the text to remove problematic line endings.
         rScriptText = rScriptText.replace(/\r/g, '');
-
-        // 3. Execute the cleaned script text.
         await webR.evalR(rScriptText);
         
         statusMessage.innerText = "Ready.";
@@ -125,9 +115,7 @@ async function main() {
     loadCsvButton.addEventListener('click', () => { fileInput.click(); });
     addRowButton.addEventListener('click', () => { hot.alter('insert_row_below'); });
     addColButton.addEventListener('click', () => {
-        const numCols = hot.countCols();
-        hot.alter('insert_col', numCols);
-        // Handsontable's default header naming is sufficient
+        hot.alter('insert_col_end');
     });
     clearTableButton.addEventListener('click', () => {
         hot.loadData([['', ''], ['', '']]);
