@@ -17,15 +17,17 @@ const outputsDiv = document.getElementById('outputs');
 const plotOutput = document.getElementById('plot-output');
 const statsOutput = document.getElementById('stats-output');
 
-// --- Initialize the Handsontable spreadsheet ---
+// --- UPDATED: Initialize the Handsontable spreadsheet ---
 const hot = new Handsontable(spreadsheetContainer, {
-    data: Handsontable.helper.createEmptySpreadsheetData(100, 26), 
+    // data: Handsontable.helper.createEmptySpreadsheetData(100, 26), // We remove this
+    startRows: 1000,   // Start with 1000 empty rows
+    startCols: 52,     // Start with 52 empty columns (A-AZ)
     rowHeaders: true,
-    colHeaders: true, 
+    colHeaders: true,
     height: '100%',
     width: '100%',
-    minSpareRows: 1,
-    minSpareCols: 1,
+    // minSpareRows: 1, // We remove this
+    // minSpareCols: 1, // We remove this
     licenseKey: 'non-commercial-and-evaluation',
     contextMenu: true,
     afterChange: updateColumnSelectors,
@@ -67,24 +69,13 @@ function updateColumnSelectors() {
     }, 0);
 }
 
-// --- THIS FUNCTION IS MODIFIED ---
 function loadCsvData(file) {
     Papa.parse(file, {
-        header: true,
+        header: false, // Treat the first row as data now
         skipEmptyLines: true,
         complete: function(results) {
-            const headers = results.meta.fields;
-            const tableData = results.data.map(row =>
-                headers.map(field => row[field] !== undefined ? row[field] : '')
-            );
-
-            // --- THIS IS THE FIX ---
-            // 1. Update the headers separately.
-            hot.updateSettings({
-                colHeaders: headers
-            });
-            // 2. Use loadData to insert the data without removing other rows/columns.
-            hot.loadData(tableData);
+            // Load data directly into the large grid
+            hot.loadData(results.data);
         }
     });
 }
@@ -120,13 +111,13 @@ async function main() {
     addRowButton.addEventListener('click', () => { hot.alter('insert_row_below'); });
     addColButton.addEventListener('click', () => { hot.alter('insert_col_end'); });
     clearTableButton.addEventListener('click', () => {
-        hot.loadData(Handsontable.helper.createEmptySpreadsheetData(100, 26));
-        hot.updateSettings({ colHeaders: true, columns: true });
+        // Clear the data but keep the large grid structure
+        hot.loadData(Handsontable.helper.createEmptySpreadsheetData(1000, 52));
     });
     exportCsvButton.addEventListener('click', () => {
-        const data = hot.getData();
-        const headers = hot.getColHeader();
-        const csv = Papa.unparse({ fields: headers, data: data }, { skipEmptyLines: false });
+        // Get only the data that has content
+        const data = hot.getData(); 
+        const csv = Papa.unparse(data, { skipEmptyLines: true });
         const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
         const link = document.createElement('a');
         link.href = URL.createObjectURL(blob);
@@ -167,9 +158,11 @@ async function main() {
 
         const shelter = await new webR.Shelter();
         try {
-            const tableData = hot.getData();
-            const headers = hot.getColHeader();
-            let csvContent = Papa.unparse({ fields: headers, data: tableData }, { skipEmptyLines: false });
+            // Get data from the sheet, which might be sparse (have lots of empty rows)
+            const tableData = hot.getSourceData();
+            // Create CSV from the data. Papa.unparse is smart enough to handle it.
+            let csvContent = Papa.unparse(tableData, { header: true });
+            
             await webR.FS.writeFile('/tmp/current_data.csv', csvContent);
 
             const rCommand = `
