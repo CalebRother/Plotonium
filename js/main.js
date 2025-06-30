@@ -1,215 +1,194 @@
 import { WebR } from 'https://webr.r-wasm.org/latest/webr.mjs';
 
 document.addEventListener('DOMContentLoaded', () => {
-  const webR = new WebR();
+    
+    const webR = new WebR();
 
-  // — UI references —
-  const fileInput          = document.getElementById('csv-file-input');
-  const spreadsheetContainer = document.getElementById('spreadsheet-container');
-  const runButton          = document.getElementById('run-button');
-  const statusMessage      = document.getElementById('status-message');
-  const outputsDiv         = document.getElementById('outputs');
-  const plotCanvas         = document.getElementById('plot-canvas');
-  const statsOutput        = document.getElementById('stats-output');
-  const beforeRangeInput   = document.getElementById('before-range-input');
-  const setBeforeButton    = document.getElementById('set-before-button');
-  const afterRangeInput    = document.getElementById('after-range-input');
-  const setAfterButton     = document.getElementById('set-after-button');
-  const importCsvMenu      = document.getElementById('import-csv-menu');
-  const exportCsvMenu      = document.getElementById('export-csv-menu');
-  const addRowMenu         = document.getElementById('add-row-menu');
-  const addColMenu         = document.getElementById('add-col-menu');
-  const clearTableMenu     = document.getElementById('clear-table-menu');
+    // Get references to all HTML elements
+    const fileInput = document.getElementById('csv-file-input');
+    const spreadsheetContainer = document.getElementById('spreadsheet-container');
+    const runButton = document.getElementById('run-button');
+    const statusMessage = document.getElementById('status-message');
+    const outputsDiv = document.getElementById('outputs');
+    const plotCanvas = document.getElementById('plot-canvas');
+    const statsOutput = document.getElementById('stats-output');
+    const beforeRangeDisplay = document.getElementById('before-range-display');
+    const afterRangeDisplay = document.getElementById('after-range-display');
+    const importCsvMenu = document.getElementById('import-csv-menu');
+    const exportCsvMenu = document.getElementById('export-csv-menu');
+    const addRowMenu = document.getElementById('add-row-menu');
+    const addColMenu = document.getElementById('add-col-menu');
+    const clearTableMenu = document.getElementById('clear-table-menu');
+    // Get the parametric checkbox
+    const parametricCheckbox = document.getElementById('parametric-checkbox');
 
-  // ⚡ NEW: parametric toggle
-  const parametricCheckbox = document.getElementById('parametric-checkbox');
+    let selections = [];
 
-  let lastSelection = null;
-
-  // Handsontable setup
-  const hot = new Handsontable(spreadsheetContainer, {
-    startRows: 1000,
-    startCols: 52,
-    rowHeaders: true,
-    colHeaders: true,
-    licenseKey: 'non-commercial-and-evaluation',
-    contextMenu: true,
-    afterSelectionEnd: (r, c, r2, c2) => {
-      lastSelection = {
-        startRow: Math.min(r, r2),
-        endRow:   Math.max(r, c2),
-        startCol: Math.min(c, c2),
-        endCol:   Math.max(c, c2),
-      };
-    }
-  });
-
-  function getA1Notation({ startRow, endRow, startCol, endCol }) {
-    // convert numeric indices back to A1
-    const colToLetter = idx => {
-      let s = '';
-      while (idx >= 0) {
-        s = String.fromCharCode((idx % 26) + 65) + s;
-        idx = Math.floor(idx/26) - 1;
-      }
-      return s;
-    };
-    const a = colToLetter(startCol) + (startRow + 1);
-    const b = colToLetter(endCol)   + (endRow   + 1);
-    return `${a}:${b}`;
-  }
-
-  function loadCsvData(file) {
-    Papa.parse(file, {
-      header: false,
-      skipEmptyLines: true,
-      complete: (res) => {
-        if (!res.data.length) return;
-        hot.populateFromArray(0, 0, res.data);
-      }
+    const hot = new Handsontable(spreadsheetContainer, {
+        startRows: 1000,
+        startCols: 52,
+        rowHeaders: true,
+        colHeaders: true,
+        height: '100%',
+        width: '100%',
+        licenseKey: 'non-commercial-and-evaluation',
+        contextMenu: true,
+        afterSelectionEnd: (r, c, r2, c2) => {
+            const selection = { startRow: Math.min(r, r2), endRow: Math.max(r, r2), startCol: Math.min(c, c2), endCol: Math.max(c, c2) };
+            selections.push(selection);
+            if (selections.length > 2) selections.shift();
+            updateRangeDisplays();
+        }
     });
-  }
 
-  function parseA1Range(rangeStr) {
-    const colToIdx = col => col.split('').reduce((acc, ch) => acc*26 + (ch.charCodeAt(0)-64), 0) - 1;
-    const [start, end] = rangeStr.toUpperCase().split(':');
-    const m1 = start.match(/^([A-Z]+)(\d+)$/);
-    if (!m1) return null;
-    let sr = +m1[2]-1, sc = colToIdx(m1[1]), er = sr, ec = sc;
-    if (end) {
-      const m2 = end.match(/^([A-Z]+)(\d+)$/);
-      if (!m2) return null;
-      er = +m2[2]-1; ec = colToIdx(m2[1]);
-    }
-    return {
-      startRow: Math.min(sr,er),
-      endRow:   Math.max(sr,er),
-      startCol: Math.min(sc,ec),
-      endCol:   Math.max(sc,ec),
-    };
-  }
-
-  async function main() {
-    try {
-      statusMessage.innerText = 'Initializing WebR…';
-      await webR.init();
-
-      statusMessage.innerText = 'Installing R packages…';
-      await webR.evalR(`webr::install(c('dplyr','rlang','ggplot2','tidyr','rstatix','scales','ggpubr'))`);
-
-      statusMessage.innerText = 'Loading analysis function…';
-      const rsp = await fetch(`r/paired_comparison.R?v=${Date.now()}`);
-      if (!rsp.ok) throw new Error(`Failed to load R script: ${rsp.status}`);
-      const text = (await rsp.text()).replace(/\r/g,'');
-      await webR.evalR(text);
-
-      statusMessage.innerText = 'Ready.';
-      runButton.disabled = false;
-    } catch (err) {
-      console.error('Startup error:', err);
-      statusMessage.innerText = 'Startup failed. See console.';
-    }
-  }
-
-  // — Menu & CSV wiring —
-  importCsvMenu .addEventListener('click', e => { e.preventDefault(); fileInput.click(); });
-  addRowMenu    .addEventListener('click', e => { e.preventDefault(); hot.alter('insert_row_below'); });
-  addColMenu    .addEventListener('click', e => { e.preventDefault(); hot.alter('insert_col_end'); });
-  clearTableMenu.addEventListener('click', e => {
-    e.preventDefault();
-    hot.loadData(Handsontable.helper.createEmptySpreadsheetData(1000,52));
-  });
-  fileInput     .addEventListener('change', e => { if (e.target.files[0]) loadCsvData(e.target.files[0]); });
-  exportCsvMenu .addEventListener('click', e => { /* your export logic */ });
-
-  setBeforeButton.addEventListener('click', () => {
-    if (lastSelection) beforeRangeInput.value = getA1Notation(lastSelection);
-    else alert('Select a range first.');
-  });
-  setAfterButton.addEventListener('click', () => {
-    if (lastSelection) afterRangeInput.value = getA1Notation(lastSelection);
-    else alert('Select a range first.');
-  });
-
-  runButton.addEventListener('click', async () => {
-    const beforeStr = beforeRangeInput.value.trim();
-    const afterStr  = afterRangeInput.value.trim();
-    if (!beforeStr || !afterStr) {
-      alert("Please set both 'Before' and 'After' ranges.");
-      return;
+    function updateRangeDisplays() {
+        if (!beforeRangeDisplay || !afterRangeDisplay) return;
+        if (selections.length === 0) { beforeRangeDisplay.textContent = 'None'; afterRangeDisplay.textContent = 'None'; } 
+        else if (selections.length === 1) { beforeRangeDisplay.textContent = getA1Notation(selections[0]); afterRangeDisplay.textContent = 'None'; } 
+        else { beforeRangeDisplay.textContent = getA1Notation(selections[1]); afterRangeDisplay.textContent = getA1Notation(selections[0]); }
     }
 
-    runButton.disabled     = true;
-    statusMessage.innerText = 'Processing…';
-    outputsDiv.style.display = 'none';
-
-    const shelter = await new webR.Shelter();
-    try {
-      const beforeRng = parseA1Range(beforeStr);
-      const afterRng  = parseA1Range(afterStr);
-      if (!beforeRng || !afterRng) {
-        alert('Invalid range format.');
-        return;
-      }
-
-      const beforeVals = hot.getData(
-        beforeRng.startRow, beforeRng.startCol,
-        beforeRng.endRow,   beforeRng.endCol
-      ).flat().filter(v => v !== '');
-      const afterVals  = hot.getData(
-        afterRng.startRow,  afterRng.startCol,
-        afterRng.endRow,    afterRng.endCol
-      ).flat().filter(v => v !== '');
-
-      if (beforeVals.length !== afterVals.length || !beforeVals.length) {
-        alert("Before/After must contain same non-empty count.");
-        return;
-      }
-
-      // ⚡ USE THE CHECKBOX VALUE HERE
-      const isParam = parametricCheckbox.checked ? 'TRUE' : 'FALSE';
-
-      const rCmd = `
-        before_vals <- c(${beforeVals.join(',')})
-        after_vals  <- c(${afterVals.join(',')})
-        data        <- data.frame(before_col=before_vals, after_col=after_vals)
-        paired_comparison(
-          data,
-          before_col,
-          after_col,
-          parametric = ${isParam}
-        )
-      `;
-
-      const result = await shelter.captureR(rCmd);
-
-      // draw plot
-      if (result.images.length) {
-        const img = result.images[0];
-        const ctx = plotCanvas.getContext('2d');
-        plotCanvas.width  = img.width;
-        plotCanvas.height = img.height;
-        ctx.drawImage(img, 0, 0);
-      }
-
-      // collect text output
-      const textOutput = result.output
-        .filter(m => ['stdout','stderr','message'].includes(m.type))
-        .map(m => m.data)
-        .join('\n').trim();
-
-      statsOutput.innerText   = textOutput;
-      outputsDiv.style.display = 'block';
-
-    } catch (err) {
-      console.error('Analysis failed:', err);
-      alert('Analysis error—see console.');
-    } finally {
-      await shelter.purge();
-      runButton.disabled     = false;
-      statusMessage.innerText = 'Analysis complete.';
+    function getA1Notation(selection) {
+        const startCol = hot.getColHeader(selection.startCol);
+        const endCol = hot.getColHeader(selection.endCol);
+        return `${startCol}${selection.startRow + 1}:${endCol}${selection.endRow + 1}`;
     }
-  });
 
-  main();
+    function loadCsvData(file) {
+        Papa.parse(file, {
+            header: false,
+            skipEmptyLines: true,
+            complete: function(results) {
+                if (results.data.length === 0) return;
+                hot.populateFromArray(0, 0, results.data);
+            }
+        });
+    }
+
+    async function main() {
+        try {
+            statusMessage.innerText = "Initializing WebR...";
+            await webR.init();
+            statusMessage.innerText = "Installing R packages...";
+            await webR.evalR("webr::install(c('dplyr', 'rlang', 'ggplot2', 'rstatix', 'scales', 'ggpubr'))");
+            statusMessage.innerText = "Loading R functions...";
+            const response = await fetch(`r/paired_comparison.R?v=${new Date().getTime()}`);
+            if (!response.ok) { throw new Error(`Failed to fetch R script: ${response.status}`); }
+            let rScriptText = await response.text();
+            rScriptText = rScriptText.replace(/\r/g, '');
+            await webR.evalR(rScriptText);
+            statusMessage.innerText = "Ready.";
+            runButton.disabled = false;
+        } catch (error) {
+            console.error("Failed during initialization:", error);
+            statusMessage.innerText = "Error during startup. Check console.";
+        }
+    }
+
+    importCsvMenu.addEventListener('click', (e) => { e.preventDefault(); fileInput.click(); });
+    addRowMenu.addEventListener('click', (e) => { e.preventDefault(); hot.alter('insert_row_below'); });
+    addColMenu.addEventListener('click', (e) => { e.preventDefault(); hot.alter('insert_col_end'); });
+    clearTableMenu.addEventListener('click', (e) => {
+        e.preventDefault();
+        hot.loadData(Handsontable.helper.createEmptySpreadsheetData(1000, 52));
+        selections = [];
+        updateRangeDisplays();
+    });
+    exportCsvMenu.addEventListener('click', (e) => {
+         e.preventDefault();
+        const cleanData = hot.getSourceData().filter((row, index) => !hot.isEmptyRow(index));
+        const headers = hot.getColHeader().slice(0, hot.countCols());
+        const csv = Papa.unparse({ fields: headers, data: cleanData });
+        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = 'data.csv';
+        link.click();
+    });
+    fileInput.addEventListener('change', (event) => {
+        if (event.target.files.length > 0) {
+            loadCsvData(event.target.files[0]);
+            fileInput.value = '';
+        }
+    });
+    
+    runButton.addEventListener('click', async () => {
+        if (selections.length < 2) {
+            alert("Please select two data ranges in the spreadsheet.");
+            return;
+        }
+
+        runButton.disabled = true;
+        statusMessage.innerText = "Processing data...";
+        outputsDiv.style.display = 'none';
+
+        const shelter = await new webR.Shelter();
+        try {
+            const afterRange = selections[0];
+            const beforeRange = selections[1];
+            
+            const beforeData = hot.getData(beforeRange.startRow, beforeRange.startCol, beforeRange.endRow, beforeRange.endCol).flat().filter(v => v !== null && v !== '');
+            const afterData = hot.getData(afterRange.startRow, afterRange.startCol, afterRange.endRow, afterRange.endCol).flat().filter(v => v !== null && v !== '');
+
+            if (beforeData.length !== afterData.length || beforeData.length === 0) {
+                 alert("Error: 'Before' and 'After' ranges must contain the same number of non-empty cells.");
+                 runButton.disabled = false;
+                 statusMessage.innerText = "Ready.";
+                 await shelter.purge();
+                 return;
+            }
+            
+            // --- FIX: Correctly check the checkbox state ---
+            const isParametric = parametricCheckbox.checked;
+            statusMessage.innerText = "Running analysis...";
+            
+            const rCommand = `
+                before_vals <- c(${beforeData.join(',')})
+                after_vals <- c(${afterData.join(',')})
+                data <- data.frame(before_col = before_vals, after_col = after_vals)
+                
+                # Correctly pass the parametric argument as TRUE or FALSE
+                paired_comparison(
+                    data = data, 
+                    before_col = before_col, 
+                    after_col = after_col,
+                    parametric = ${isParametric ? 'TRUE' : 'FALSE'}
+                )
+            `;
+            
+            const result = await shelter.captureR(rCommand);
+            
+            try {
+                const plots = result.images;
+                if (plots.length > 0) {
+                    const plot = plots[0]; 
+                    const ctx = plotCanvas.getContext('2d');
+                    plotCanvas.width = plot.width;
+                    plotCanvas.height = plot.height;
+                    ctx.drawImage(plot, 0, 0);
+                }
+
+                const textOutput = result.output
+                    .filter(msg => msg.type === 'stdout' || msg.type === 'stderr' || msg.type === 'message')
+                    .map(msg => msg.data)
+                    .join('\n');
+                
+                statsOutput.innerText = textOutput.trim();
+                outputsDiv.style.display = 'block';
+
+            } finally {
+                // No result.destroy() needed
+            }
+
+        } catch(error) {
+            console.error("Failed during analysis:", error);
+            statusMessage.innerText = "An error occurred during analysis. Check console.";
+        } finally {
+            await shelter.purge();
+            statusMessage.innerText = "Analysis complete.";
+            runButton.disabled = false;
+        }
+    });
+
+    main();
 });
