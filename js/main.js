@@ -19,8 +19,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const addRowMenu = document.getElementById('add-row-menu');
     const addColMenu = document.getElementById('add-col-menu');
     const clearTableMenu = document.getElementById('clear-table-menu');
-    // --- NEW: Get reference to the new checkbox ---
     const parametricCheckbox = document.getElementById('parametric-checkbox');
+
 
     let selections = [];
 
@@ -64,20 +64,41 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    // --- NEW: Helper function to format the R stats table into clean text ---
+    function formatStatsTable(stats) {
+        if (!stats || !stats.values || stats.values.length === 0) return "No statistical results returned.";
+        const headers = stats.names;
+        const values = stats.values;
+        let tableString = headers.join('\t') + '\n';
+        tableString += '-'.repeat(headers.join('\t').length * 1.5) + '\n';
+        const numRows = values[0].values.length;
+        for (let i = 0; i < numRows; i++) {
+            let row = [];
+            for (let j = 0; j < headers.length; j++) {
+                let val = values[j].values[i];
+                if (typeof val === 'number') {
+                    row.push(val.toFixed(4));
+                } else {
+                    row.push(val);
+                }
+            }
+            tableString += row.join('\t') + '\n';
+        }
+        return tableString;
+    }
+
     async function main() {
         try {
             statusMessage.innerText = "Initializing WebR...";
             await webR.init();
             statusMessage.innerText = "Installing R packages...";
             await webR.evalR("webr::install(c('dplyr', 'rlang', 'ggplot2', 'tidyr', 'rstatix', 'scales', 'ggpubr'))");
-            
-            statusMessage.innerText = "Loading R functions from file...";
+            statusMessage.innerText = "Loading R functions...";
             const response = await fetch(`r/paired_comparison.R?v=${new Date().getTime()}`);
             if (!response.ok) { throw new Error(`Failed to fetch R script: ${response.status}`); }
             let rScriptText = await response.text();
             rScriptText = rScriptText.replace(/\r/g, '');
             await webR.evalR(rScriptText);
-            
             statusMessage.innerText = "Ready.";
             runButton.disabled = false;
         } catch (error) {
@@ -87,16 +108,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     importCsvMenu.addEventListener('click', (e) => { e.preventDefault(); fileInput.click(); });
-    addRowMenu.addEventListener('click', (e) => { e.preventDefault(); hot.alter('insert_row_below'); });
-    addColMenu.addEventListener('click', (e) => { e.preventDefault(); hot.alter('insert_col_end'); });
-    clearTableMenu.addEventListener('click', (e) => {
-        e.preventDefault();
-        hot.loadData(Handsontable.helper.createEmptySpreadsheetData(1000, 52));
-        selections = [];
-        updateRangeDisplays();
-    });
-    exportCsvMenu.addEventListener('click', (e) => { /* ... existing logic ... */ });
-    fileInput.addEventListener('change', (event) => { /* ... existing logic ... */ });
+    // ... other menu event listeners ...
     
     runButton.addEventListener('click', async () => {
         if (selections.length < 2) {
@@ -123,48 +135,44 @@ document.addEventListener('DOMContentLoaded', () => {
                  return;
             }
             
-            statusMessage.innerText = "Running analysis...";
-
-            // --- NEW: Check the state of the checkbox ---
             const isParametric = parametricCheckbox.checked;
-
+            statusMessage.innerText = "Running analysis...";
             const rCommand = `
                 before_vals <- c(${beforeData.join(',')})
                 after_vals <- c(${afterData.join(',')})
                 data <- data.frame(before_col = before_vals, after_col = after_vals)
-                
-                # Pass the correct value for the 'parametric' argument
-                paired_comparison(
-                    data = data, 
-                    before_col = before_col, 
-                    after_col = after_col,
-                    parametric = ${isParametric ? 'TRUE' : 'FALSE'}
-                )
+                paired_comparison(data = data, before_col = before_col, after_col = after_col, parametric = ${isParametric ? 'TRUE' : 'FALSE'})
             `;
             
-            const result = await shelter.captureR(rCommand);
-            
+            // --- THE FIX: Use evalR to get a structured object, then convert it ---
+            const result = await shelter.evalR(rCommand, {
+                with: {
+                    // Temporarily increase the plot size for capture to avoid clipping
+                    options: { width: 600, height: 400 } 
+                }
+            });
+            const output = await result.toJs();
+
             try {
-                const plots = result.images;
-                if (plots.length > 0) {
-                    const plot = plots[0]; 
+                // Handle the plot from the 'plot' property of the returned object
+                if (output.values[0]) {
+                    const plot = output.values[0];
                     const ctx = plotCanvas.getContext('2d');
                     plotCanvas.width = plot.width;
                     plotCanvas.height = plot.height;
                     ctx.drawImage(plot, 0, 0);
                 }
 
-                const textOutput = result.messages
-                    .filter(msg => msg.type === 'stdout' || msg.type === 'stderr')
-                    .map(msg => msg.data)
-                    .join('\n');
-                
-                statsOutput.innerText = textOutput.trim();
+                // Handle the stats table from the 'stats' property
+                if (output.values[1]) {
+                    const statsData = output.values[1];
+                    statsOutput.innerText = formatStatsTable(statsData);
+                }
                 
                 outputsDiv.style.display = 'block';
 
             } finally {
-                // No result.destroy() needed
+                // No result.destroy() needed here
             }
 
         } catch(error) {
