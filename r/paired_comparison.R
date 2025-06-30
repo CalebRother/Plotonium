@@ -4,7 +4,7 @@ library(rlang)
 library(ggplot2)
 library(rstatix)
 library(scales)
-library(ggpubr) # Added for stat_compare_means
+library(ggpubr)
 
 paired_comparison <- function(data, before_col, after_col, parametric = FALSE, plot_title = NULL, xlab = NULL, ylab = "Value", before_label = NULL, after_label = NULL, show_paired_lines = TRUE, before_color = NULL, after_color = NULL) {
   
@@ -23,10 +23,14 @@ paired_comparison <- function(data, before_col, after_col, parametric = FALSE, p
     stop("No complete pairs of data found after removing NAs.")
   }
   
+  # --- THE FIX: Pre-calculate the jitter for each subject ---
   set.seed(42)
-  data_clean$x_jitter <- runif(nrow(data_clean), min = -0.2, max = 0.2)
-  
-  # --- Perform the Statistical Test ---
+  # Create one jitter value per subject, so their before/after points align vertically
+  jitter_values <- runif(nrow(data_clean), -0.15, 0.15)
+  data_clean$x_jitter_amount <- jitter_values
+  # --- End of fix ---
+
+  # Perform the Statistical Test
   if (parametric) {
     stats_res <- data_clean %>% rstatix::t_test(difference ~ 1, mu = 0)
     test_name <- "Paired t-Test"
@@ -35,9 +39,9 @@ paired_comparison <- function(data, before_col, after_col, parametric = FALSE, p
     test_name <- "Wilcoxon Signed-Rank Test"
   }
   
-  # --- Reshape data using Base R ---
-  df_before <- data.frame(subject_id = data_clean$subject_id, time = before_str, value = data_clean[[before_str]], x_jitter = data_clean$x_jitter)
-  df_after <- data.frame(subject_id = data_clean$subject_id, time = after_str, value = data_clean[[after_str]], x_jitter = data_clean$x_jitter)
+  # Reshape data using Base R
+  df_before <- data.frame(subject_id = data_clean$subject_id, time = before_str, value = data_clean[[before_str]], x_jitter_amount = data_clean$x_jitter_amount)
+  df_after <- data.frame(subject_id = data_clean$subject_id, time = after_str, value = data_clean[[after_str]], x_jitter_amount = data_clean$x_jitter_amount)
   data_long <- rbind(df_before, df_after)
   data_long$time <- factor(data_long$time, levels = c(before_str, after_str))
 
@@ -45,38 +49,45 @@ paired_comparison <- function(data, before_col, after_col, parametric = FALSE, p
     levels(data_long$time) <- c(before_label, after_label)
   }
   
-  # --- Build the Plot ---
+  # Build the Plot
   if (is.null(plot_title)) plot_title <- paste("Change from", before_str, "to", after_str)
   if (is.null(xlab)) xlab <- "Time Point"
   
-  p <- ggplot2::ggplot(data_long, ggplot2::aes(x = time, y = value))
+  # --- THE FIX: Tell both points and lines to use the pre-calculated jitter ---
+  p <- ggplot2::ggplot(data_long, ggplot2::aes(x = as.numeric(time) + x_jitter_amount, y = value))
+  
+  # The boxplot still uses the non-jittered "time" as its x-axis
+  p <- p + ggplot2::geom_boxplot(ggplot2::aes(x = as.numeric(time), fill = time, group = time), alpha = 0.7, outlier.shape = NA)
   
   if (show_paired_lines) {
+    # The line now uses the same jittered x-position
     p <- p + ggplot2::geom_line(
       ggplot2::aes(group = subject_id),
       color = "grey70", alpha = 0.5
     )
   }
   
-  p <- p +
-    ggplot2::geom_boxplot(ggplot2::aes(fill = time), alpha = 0.7, outlier.shape = NA) +
-    ggplot2::geom_jitter(ggplot2::aes(color = time), width = 0.1, alpha = 0.8)
+  # The points now use the same jittered x-position
+  p <- p + ggplot2::geom_point(ggplot2::aes(color = time), alpha = 0.8)
   
-  # --- THIS IS THE UPDATED SIGNIFICANCE SECTION ---
+  # Add significance comparison
   p <- p + ggpubr::stat_compare_means(
+    aes(x = as.numeric(time), group = subject_id), # stat_compare_means also needs the non-jittered x
     method = if (parametric) "t.test" else "wilcox.test",
     paired = TRUE,
-    comparisons = list(c(before_str, after_str)),
-    # Define the custom map from p-values to symbols
+    comparisons = list(c(1, 2)), # Compare the numeric positions
     symnum.args = list(
         cutpoints = c(0, 0.0001, 0.001, 0.01, 0.05, 1),
         symbols = c("****", "***", "**", "*", "ns")
     )
   )
+  # --- End of fix ---
   
   p <- p +
     ggplot2::theme_minimal() +
     ggplot2::theme(legend.position = "none") +
+    # Use the original labels for the x-axis ticks
+    ggplot2::scale_x_continuous(breaks = 1:2, labels = levels(data_long$time)) +
     ggplot2::labs(
       title = plot_title,
       subtitle = test_name,
