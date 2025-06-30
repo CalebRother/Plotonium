@@ -35,7 +35,7 @@ paired_comparison <- function(data, before_col, after_col, parametric = FALSE, p
     test_name <- "Wilcoxon Signed-Rank Test"
   }
   
-  # Reshape data using Base R
+  # Reshape data for plotting
   df_before <- data.frame(subject_id = data_clean$subject_id, time = before_str, value = data_clean[[before_str]], x_jitter_amount = data_clean$x_jitter_amount)
   df_after <- data.frame(subject_id = data_clean$subject_id, time = after_str, value = data_clean[[after_str]], x_jitter_amount = data_clean$x_jitter_amount)
   data_long <- rbind(df_before, df_after)
@@ -45,63 +45,60 @@ paired_comparison <- function(data, before_col, after_col, parametric = FALSE, p
     levels(data_long$time) <- c(before_label, after_label)
   }
   
-  # Prepare the p-value for plotting
+  # Prepare the p-value data for plotting
   stat.test <- stats_res %>%
     rstatix::add_significance("p") %>%
     rstatix::add_xy_position(x = "time") %>%
-    mutate(y.position = max(data_long$value) * 1.05) 
+    mutate(y.position = max(data_long$value, na.rm = TRUE) * 1.05)
 
   # Build the Plot
   if (is.null(plot_title)) plot_title <- paste("Change from", before_str, "to", after_str)
   if (is.null(xlab)) xlab <- "Time Point"
   
-  p <- ggplot2::ggplot(data_long, ggplot2::aes(x = time, y = value))
-  
-  p <- p + ggplot2::geom_boxplot(ggplot2::aes(fill = time), alpha = 0.7, outlier.shape = NA)
-  
-  if (show_paired_lines) {
-    p <- p + ggplot2::geom_line(
-      ggplot2::aes(x = as.numeric(time) + x_jitter_amount, group = subject_id),
-      color = "grey70", alpha = 0.5
-    )
-  }
-  
-  p <- p + ggplot2::geom_point(
-      ggplot2::aes(x = as.numeric(time) + x_jitter_amount, color = time), 
-      alpha = 0.8
-  )
-  
-  p <- p + ggpubr::stat_pvalue_manual(
-    stat.test,
-    label = "p.signif",
-    tip.length = 0.01,
-    symnum.args = list(
-        cutpoints = c(0, 0.0001, 0.001, 0.01, 0.05, 1),
-        symbols = c("****", "***", "**", "*", "ns")
-    )
-  )
-  
-  p <- p +
-    ggplot2::theme_minimal() +
-    ggplot2::theme(legend.position = "none") +
-    ggplot2::labs(
+  p <- ggplot2::ggplot(data_long, ggplot2::aes(x = time, y = value)) +
+    geom_boxplot(aes(fill = time), alpha = 0.7, outlier.shape = NA) +
+    geom_line(aes(x = as.numeric(time) + x_jitter_amount, group = subject_id), color = "grey70", alpha = 0.5) +
+    geom_point(aes(x = as.numeric(time) + x_jitter_amount, color = time), alpha = 0.8) +
+    ggpubr::stat_pvalue_manual(
+      stat.test,
+      label = "p.signif",
+      tip.length = 0.01,
+      symnum.args = list(cutpoints = c(0, 0.0001, 0.001, 0.01, 0.05, 1), symbols = c("****", "***", "**", "*", "ns"))
+    ) +
+    theme_minimal() +
+    theme(legend.position = "none") +
+    labs(
       title = plot_title,
       subtitle = test_name,
       x = xlab,
       y = ylab
     ) +
-    ggplot2::scale_y_continuous(expand = expansion(mult = c(0.05, 0.15)))
+    # FIX: Manually expand the y-axis to make room for the bracket
+    scale_y_continuous(expand = expansion(mult = c(0.05, 0.15)))
 
   if (!is.null(before_color) && !is.null(after_color)) {
-    level_names <- levels(data_long$time)
-    custom_colors <- c(before_color, after_color)
-    names(custom_colors) <- level_names
-    
     p <- p +
-      ggplot2::scale_color_manual(values = custom_colors) +
-      ggplot2::scale_fill_manual(values = custom_colors)
+      scale_color_manual(values = c(before_color, after_color)) +
+      scale_fill_manual(values = c(before_color, after_color))
   }
   
-  # --- THE FIX: Return a list containing the plot and the stats table ---
-  return(list(plot = p, stats = stats_res))
+  # --- THE FIX: Explicitly print both the plot and a formatted stats table ---
+  print(p)
+  
+  # Format the stats table for clean text output
+  stats_summary_text <- paste(
+    "Paired Analysis Results:",
+    "  Variable: .y.",
+    "  Group 1: group1",
+    "  Group 2: group2",
+    paste("  Statistic (", stats_res$statistic, "): ", round(stats_res$statistic, 2)),
+    paste("  df: ", stats_res$df),
+    paste("  p-value: ", format.pval(stats_res$p, digits = 3, eps = 0.001)),
+    "  Method: ", test_name,
+    sep = "\n"
+  )
+
+  message(stats_summary_text)
+  
+  # No return value needed; output is handled by printing
 }
