@@ -17,17 +17,14 @@ const outputsDiv = document.getElementById('outputs');
 const plotOutput = document.getElementById('plot-output');
 const statsOutput = document.getElementById('stats-output');
 
-// --- UPDATED: Initialize the Handsontable spreadsheet ---
+// --- Initialize the Handsontable spreadsheet ---
 const hot = new Handsontable(spreadsheetContainer, {
-    // data: Handsontable.helper.createEmptySpreadsheetData(100, 26), // We remove this
-    startRows: 1000,   // Start with 1000 empty rows
-    startCols: 52,     // Start with 52 empty columns (A-AZ)
+    startRows: 1000,
+    startCols: 52,
     rowHeaders: true,
     colHeaders: true,
     height: '100%',
     width: '100%',
-    // minSpareRows: 1, // We remove this
-    // minSpareCols: 1, // We remove this
     licenseKey: 'non-commercial-and-evaluation',
     contextMenu: true,
     afterChange: updateColumnSelectors,
@@ -55,7 +52,7 @@ function updateColumnSelectors() {
         afterColSelect.appendChild(defaultOption.cloneNode(true));
 
         headers.forEach(header => {
-            if (header) { 
+            if (header && typeof header === 'string') { 
                 const option = document.createElement('option');
                 option.value = header;
                 option.textContent = header;
@@ -69,13 +66,31 @@ function updateColumnSelectors() {
     }, 0);
 }
 
+// --- THIS FUNCTION IS MODIFIED TO "PASTE" DATA ---
 function loadCsvData(file) {
     Papa.parse(file, {
-        header: false, // Treat the first row as data now
+        header: false, // We will handle the header manually
         skipEmptyLines: true,
         complete: function(results) {
-            // Load data directly into the large grid
-            hot.loadData(results.data);
+            const dataWithHeaders = results.data;
+
+            if (dataWithHeaders.length === 0) {
+                return; // Do nothing if the file is empty
+            }
+
+            // The first row is our headers
+            const headers = dataWithHeaders.shift();
+            // The rest is our data
+            const data = dataWithHeaders;
+
+            // Update the column headers in the spreadsheet
+            hot.updateSettings({
+                colHeaders: headers
+            });
+
+            // "Paste" the data at the top-left (row 0, col 0)
+            // without changing the table's dimensions.
+            hot.populateFromArray(0, 0, data);
         }
     });
 }
@@ -111,13 +126,12 @@ async function main() {
     addRowButton.addEventListener('click', () => { hot.alter('insert_row_below'); });
     addColButton.addEventListener('click', () => { hot.alter('insert_col_end'); });
     clearTableButton.addEventListener('click', () => {
-        // Clear the data but keep the large grid structure
         hot.loadData(Handsontable.helper.createEmptySpreadsheetData(1000, 52));
+        hot.updateSettings({ colHeaders: true, columns: true });
     });
     exportCsvButton.addEventListener('click', () => {
-        // Get only the data that has content
-        const data = hot.getData(); 
-        const csv = Papa.unparse(data, { skipEmptyLines: true });
+        const dataToExport = hot.getSourceData(0,0,hot.countRows()-1, hot.countCols()-1);
+        const csv = Papa.unparse(dataToExport, { header: true });
         const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
         const link = document.createElement('a');
         link.href = URL.createObjectURL(blob);
@@ -158,11 +172,9 @@ async function main() {
 
         const shelter = await new webR.Shelter();
         try {
-            // Get data from the sheet, which might be sparse (have lots of empty rows)
-            const tableData = hot.getSourceData();
-            // Create CSV from the data. Papa.unparse is smart enough to handle it.
-            let csvContent = Papa.unparse(tableData, { header: true });
-            
+            const tableData = hot.getData();
+            const headers = hot.getColHeader();
+            let csvContent = Papa.unparse({ fields: headers, data: tableData }, { skipEmptyLines: false });
             await webR.FS.writeFile('/tmp/current_data.csv', csvContent);
 
             const rCommand = `
