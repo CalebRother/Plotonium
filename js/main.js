@@ -1,4 +1,6 @@
-// --- NEW: Wait for the entire HTML page to be ready before running any code ---
+// --- FIX: No longer need to import WebR, it's loaded globally from index.html ---
+// document.addEventListener('DOMContentLoaded', () => { ... }); is still needed
+
 document.addEventListener('DOMContentLoaded', () => {
     
     // All of our application code now lives inside this listener
@@ -101,7 +103,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // Event listeners for menu items
+    // Event listeners
     importCsvMenu.addEventListener('click', (e) => { e.preventDefault(); fileInput.click(); });
     addRowMenu.addEventListener('click', (e) => { e.preventDefault(); hot.alter('insert_row_below'); });
     addColMenu.addEventListener('click', (e) => { e.preventDefault(); hot.alter('insert_col_end'); });
@@ -111,7 +113,17 @@ document.addEventListener('DOMContentLoaded', () => {
         selections = [];
         updateRangeDisplays();
     });
-    exportCsvMenu.addEventListener('click', (e) => { /* ... existing export logic ... */ });
+    exportCsvMenu.addEventListener('click', (e) => {
+         e.preventDefault();
+        const cleanData = hot.getSourceData().filter(row => !hot.isEmptyRow(hot.getSourceData().indexOf(row)));
+        const headers = hot.getColHeader().slice(0, hot.countCols());
+        const csv = Papa.unparse({ fields: headers, data: cleanData });
+        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = 'data.csv';
+        link.click();
+    });
     fileInput.addEventListener('change', (event) => {
         if (event.target.files.length > 0) {
             loadCsvData(event.target.files[0]);
@@ -176,7 +188,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 statsOutput.innerText = textOutput;
                 outputsDiv.style.display = 'block';
             } finally {
-                // The result object from captureR doesn't need destroy()
+                // No result.destroy() needed
             }
 
         } catch(error) {
@@ -189,6 +201,5 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // Start the main application logic
     main();
 });
