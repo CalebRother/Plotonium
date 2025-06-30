@@ -90,10 +90,8 @@ paired_comparison <- function(data, before_col, after_col, parametric = FALSE, p
       x = xlab,
       y = ylab
     ) +
-    # --- THIS IS THE FIX: Expand plot limits to make room for the bracket ---
-    ggplot2::scale_y_continuous(expand = expansion(mult = c(0.05, 0.1)))
+    ggplot2::scale_y_continuous(expand = expansion(mult = c(0.05, 0.15)))
 
-  
   if (!is.null(before_color) && !is.null(after_color)) {
     level_names <- levels(data_long$time)
     custom_colors <- c(before_color, after_color)
@@ -104,9 +102,6 @@ paired_comparison <- function(data, before_col, after_col, parametric = FALSE, p
       ggplot2::scale_fill_manual(values = custom_colors)
   }
   
-  print(p)
-  message("\\nPaired Analysis Results:")
-  print(stats_res)
-  
-  invisible(list(plot = p, stats_results = stats_res))
+  # --- THE FIX: Return a list containing the plot and the stats table ---
+  return(list(plot = p, stats = stats_res))
 }
