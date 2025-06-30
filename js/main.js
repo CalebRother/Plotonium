@@ -9,28 +9,16 @@ const statusMessage = document.getElementById('status-message');
 const outputsDiv = document.getElementById('outputs');
 const plotOutput = document.getElementById('plot-output');
 const statsOutput = document.getElementById('stats-output');
-const beforeRangeInput = document.getElementById('before-range-input');
-const setBeforeButton = document.getElementById('set-before-button');
-const afterRangeInput = document.getElementById('after-range-input');
-const setAfterButton = document.getElementById('set-after-button');
+const beforeRangeDisplay = document.getElementById('before-range-display');
+const afterRangeDisplay = document.getElementById('after-range-display');
 const importCsvMenu = document.getElementById('import-csv-menu');
 const exportCsvMenu = document.getElementById('export-csv-menu');
 const addRowMenu = document.getElementById('add-row-menu');
 const addColMenu = document.getElementById('add-col-menu');
 const clearTableMenu = document.getElementById('clear-table-menu');
 
-let lastSelection = null;
-
-// --- NEW: Our own reliable function to convert column index to a letter label ---
-function colIndexToLabel(col) {
-    let label = '';
-    let C = col;
-    while (C >= 0) {
-        label = String.fromCharCode(65 + (C % 26)) + label;
-        C = Math.floor(C / 26) - 1;
-    }
-    return label;
-}
+// --- NEW, SIMPLER APPROACH: Store the last two selections ---
+let selections = [];
 
 // Initialize Handsontable
 const hot = new Handsontable(spreadsheetContainer, {
@@ -42,14 +30,48 @@ const hot = new Handsontable(spreadsheetContainer, {
     width: '100%',
     licenseKey: 'non-commercial-and-evaluation',
     contextMenu: true,
-    afterSelection: (r, c, r2, c2) => {
-        const startRow = Math.min(r, r2);
-        const endRow = Math.max(r, r2);
-        const startCol = Math.min(c, c2);
-        const endCol = Math.max(c, c2);
-        lastSelection = { startRow, endRow, startCol, endCol };
+    // --- This hook now drives the entire selection logic ---
+    afterSelectionEnd: (r, c, r2, c2) => {
+        // Get selection coordinates
+        const selection = {
+            startRow: Math.min(r, r2),
+            endRow: Math.max(r, r2),
+            startCol: Math.min(c, c2),
+            endCol: Math.max(c, c2),
+        };
+        
+        // Add the new selection to our array
+        selections.push(selection);
+        // Keep only the last two selections
+        if (selections.length > 2) {
+            selections.shift();
+        }
+        
+        // Update the UI to show the user what is stored
+        updateRangeDisplays();
     }
 });
+
+function updateRangeDisplays() {
+    if (selections.length === 0) {
+        beforeRangeDisplay.textContent = 'None';
+        afterRangeDisplay.textContent = 'None';
+    } else if (selections.length === 1) {
+        beforeRangeDisplay.textContent = getA1Notation(selections[0]);
+        afterRangeDisplay.textContent = 'None';
+    } else {
+        // The first selection is now the "After" group, the newest one is the "Before"
+        beforeRangeDisplay.textContent = getA1Notation(selections[1]);
+        afterRangeDisplay.textContent = getA1Notation(selections[0]);
+    }
+}
+
+function getA1Notation(selection) {
+    const startCol = hot.getColHeader(selection.startCol);
+    const endCol = hot.getColHeader(selection.endCol);
+    return `${startCol}${selection.startRow + 1}:${endCol}${selection.endRow + 1}`;
+}
+
 
 function loadCsvData(file) {
     Papa.parse(file, {
@@ -60,22 +82,6 @@ function loadCsvData(file) {
             hot.populateFromArray(0, 0, results.data);
         }
     });
-}
-
-function parseA1Range(rangeStr) {
-    try {
-        const [start, end] = rangeStr.split(':');
-        const startCoords = Handsontable.helper.cellCoords(start);
-        const endCoords = end ? Handsontable.helper.cellCoords(end) : startCoords;
-        return {
-            startRow: Math.min(startCoords.row, endCoords.row),
-            endRow: Math.max(startCoords.row, endCoords.row),
-            startCol: Math.min(startCoords.col, endCoords.col),
-            endCol: Math.max(startCoords.col, endCoords.col),
-        };
-    } catch (e) {
-        return null;
-    }
 }
 
 async function main() {
@@ -97,29 +103,6 @@ async function main() {
         statusMessage.innerText = "Error during startup. Check console.";
     }
 
-    // --- MODIFIED: Event listeners now use our new helper function ---
-    setBeforeButton.addEventListener('click', () => {
-        if (lastSelection) {
-            const startColName = colIndexToLabel(lastSelection.startCol);
-            const endColName = colIndexToLabel(lastSelection.endCol);
-            const rangeText = `${startColName}${lastSelection.startRow + 1}:${endColName}${lastSelection.endRow + 1}`;
-            beforeRangeInput.value = rangeText;
-        } else {
-            alert("Please select a range of cells in the spreadsheet first.");
-        }
-    });
-
-    setAfterButton.addEventListener('click', () => {
-        if (lastSelection) {
-            const startColName = colIndexToLabel(lastSelection.startCol);
-            const endColName = colIndexToLabel(lastSelection.endCol);
-            const rangeText = `${startColName}${lastSelection.startRow + 1}:${endColName}${lastSelection.endRow + 1}`;
-            afterRangeInput.value = rangeText;
-        } else {
-            alert("Please select a range of cells in the spreadsheet first.");
-        }
-    });
-
     // Event listeners for menu items
     importCsvMenu.addEventListener('click', (e) => { e.preventDefault(); fileInput.click(); });
     addRowMenu.addEventListener('click', (e) => { e.preventDefault(); hot.alter('insert_row_below'); });
@@ -127,6 +110,8 @@ async function main() {
     clearTableMenu.addEventListener('click', (e) => {
         e.preventDefault();
         hot.loadData(Handsontable.helper.createEmptySpreadsheetData(1000, 52));
+        selections = []; // Clear selections as well
+        updateRangeDisplays();
     });
     exportCsvMenu.addEventListener('click', (e) => { /* ... existing export logic ... */ });
     fileInput.addEventListener('change', (event) => {
@@ -136,13 +121,10 @@ async function main() {
         }
     });
     
-    // Run button logic
+    // --- The new, simpler Run button logic ---
     runButton.addEventListener('click', async () => {
-        const beforeRangeStr = beforeRangeInput.value.trim();
-        const afterRangeStr = afterRangeInput.value.trim();
-
-        if (!beforeRangeStr || !afterRangeStr) {
-            alert("Please set both 'Before' and 'After' ranges.");
+        if (selections.length < 2) {
+            alert("Please select two data ranges in the spreadsheet.");
             return;
         }
 
@@ -152,17 +134,10 @@ async function main() {
 
         const shelter = await new webR.Shelter();
         try {
-            const beforeRange = parseA1Range(beforeRangeStr);
-            const afterRange = parseA1Range(afterRangeStr);
-
-            if (!beforeRange || !afterRange) {
-                 alert("Error: Invalid range format. Please use standard spreadsheet notation (e.g., 'A1' or 'B2:B61').");
-                 runButton.disabled = false;
-                 statusMessage.innerText = "Ready.";
-                 await shelter.purge();
-                 return;
-            }
-
+            // The "After" data is the first selection, "Before" is the second
+            const afterRange = selections[0];
+            const beforeRange = selections[1];
+            
             const beforeData = hot.getData(beforeRange.startRow, beforeRange.startCol, beforeRange.endRow, beforeRange.endCol).flat().filter(v => v !== null && v !== '');
             const afterData = hot.getData(afterRange.startRow, afterRange.startCol, afterRange.endRow, afterRange.endCol).flat().filter(v => v !== null && v !== '');
 
