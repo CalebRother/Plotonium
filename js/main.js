@@ -69,37 +69,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // --- NEW: Helper function to format the R stats table into text ---
-    function formatStatsTable(stats) {
-        if (!stats || !stats.values || stats.values.length === 0) {
-            return "No statistical results returned.";
-        }
-        // The stats object from WebR has a 'names' property for headers
-        // and a 'values' property which is an array of column data.
-        const headers = stats.names;
-        const values = stats.values;
-
-        let tableString = headers.join('\t') + '\n';
-        tableString += '-'.repeat(headers.join('\t').length * 1.5) + '\n';
-        
-        // The data is column-major, so we need to transpose it for display.
-        const numRows = values[0].values.length;
-        for (let i = 0; i < numRows; i++) {
-            let row = [];
-            for (let j = 0; j < headers.length; j++) {
-                let val = values[j].values[i];
-                if (typeof val === 'number') {
-                    // Format numbers to a reasonable number of decimal places
-                    row.push(val.toFixed(4));
-                } else {
-                    row.push(val);
-                }
-            }
-            tableString += row.join('\t') + '\n';
-        }
-        return tableString;
-    }
-
     async function main() {
         try {
             statusMessage.innerText = "Initializing WebR...";
@@ -167,30 +136,32 @@ document.addEventListener('DOMContentLoaded', () => {
                 paired_comparison(data = data, before_col = before_col, after_col = after_col)
             `;
             
-            // --- THE FIX: Use evalR and .toJs() to get the structured list ---
-            const result = await shelter.evalR(rCommand);
-            const output = await result.toJs();
-
+            // --- THE FIX: Revert to using captureR ---
+            const result = await shelter.captureR(rCommand);
+            
             try {
                 // Handle the plot
-                if (output.values[0]) { // The plot is the first item in the list
-                    const plot = output.values[0];
+                const plots = result.images;
+                if (plots.length > 0) {
+                    const plot = plots[0]; 
                     const ctx = plotCanvas.getContext('2d');
                     plotCanvas.width = plot.width;
                     plotCanvas.height = plot.height;
                     ctx.drawImage(plot, 0, 0);
                 }
 
-                // Handle the text output
-                if (output.values[1]) { // The stats table is the second item
-                    const statsData = output.values[1];
-                    statsOutput.innerText = formatStatsTable(statsData);
-                }
+                // --- THE FIX: Correctly process the messages array ---
+                const textOutput = result.messages
+                    .filter(msg => msg.type === 'stdout' || msg.type === 'stderr')
+                    .map(msg => msg.data)
+                    .join('\n');
+                
+                statsOutput.innerText = textOutput.trim();
                 
                 outputsDiv.style.display = 'block';
 
             } finally {
-                // No result.destroy() needed
+                // No destroy method needed on the captureR result object
             }
 
         } catch(error) {
