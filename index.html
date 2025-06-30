@@ -26,8 +26,9 @@
         #spreadsheet-container { width: 100%; height: 100%; overflow: hidden; }
         pre { background-color: #f4f4f4; padding: 1em; white-space: pre-wrap; word-wrap: break-word; font-size: 0.9em; }
         button:disabled { cursor: not-allowed; background-color: #ccc; }
-        .range-display { margin-bottom: 10px; }
-        .range-display span { font-weight: bold; font-family: monospace; padding: 2px 5px; background-color: #eee; border-radius: 4px; }
+        .range-selector { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+        .range-selector label { flex-shrink: 0; width: 60px; }
+        .range-selector input[type="text"] { flex-grow: 1; }
         #plot-canvas { max-width: 100%; }
     </style>
 </head>
@@ -40,9 +41,7 @@
         </ul>
     </nav>
     <input type="file" id="csv-file-input" accept=".csv" style="display: none;">
-
     <div class="app-container">
-        
         <div class="panel output-panel">
             <h2>Output Window</h2>
             <div id="outputs" style="display: none;">
@@ -51,33 +50,31 @@
                 <pre><code id="stats-output"></code></pre>
             </div>
         </div>
-
         <div class="panel spreadsheet-panel">
             <div id="spreadsheet-container"></div>
         </div>
-        
         <div class="panel controls-panel">
             <div id="analysis-section">
                 <h3>Plotonium</h3>
-                <p>Highlight your 'Before' data, then highlight your 'After' data, then click Run Test.</p>
+                <p>Highlight a range and click "Set", or type the range manually.</p>
                 <h4>Run Paired Comparison</h4>
-                <div class="range-display">Before Range: <span id="before-range-display">None</span></div>
-                <div class="range-display">After Range: <span id="after-range-display">None</span></div>
-                
-                <div class="controls" style="margin-top: 10px;">
-                    <input type="checkbox" id="parametric-checkbox">
-                    <label for="parametric-checkbox">Assume normal distribution (run parametric test)</label>
+                <div class="range-selector">
+                    <label for="before-range-input">Before:</label>
+                    <input type="text" id="before-range-input" placeholder="e.g., A1:A50">
+                    <button id="set-before-button">Set</button>
                 </div>
-
+                <div class="range-selector">
+                    <label for="after-range-input">After:</label>
+                    <input type="text" id="after-range-input" placeholder="e.g., B1:B50">
+                    <button id="set-after-button">Set</button>
+                </div>
                 <div class="controls" style="margin-top: 10px;">
                     <button id="run-button" disabled>Run Test</button>
                 </div>
             </div>
             <div id="status-message" style="margin-left: 2em; margin-top: 1em;"></div>
         </div>
-
     </div>
-
     <script src="js/main.js" type="module"></script>
 </body>
 </html>
