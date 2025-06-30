@@ -19,9 +19,9 @@ const statsOutput = document.getElementById('stats-output');
 
 // --- Initialize the Handsontable spreadsheet ---
 const hot = new Handsontable(spreadsheetContainer, {
-    data: Handsontable.helper.createEmptySpreadsheetData(100, 26),
+    data: Handsontable.helper.createEmptySpreadsheetData(100, 26), 
     rowHeaders: true,
-    colHeaders: true,
+    colHeaders: true, 
     height: '100%',
     width: '100%',
     minSpareRows: 1,
@@ -67,6 +67,7 @@ function updateColumnSelectors() {
     }, 0);
 }
 
+// --- THIS FUNCTION IS MODIFIED ---
 function loadCsvData(file) {
     Papa.parse(file, {
         header: true,
@@ -76,11 +77,14 @@ function loadCsvData(file) {
             const tableData = results.data.map(row =>
                 headers.map(field => row[field] !== undefined ? row[field] : '')
             );
+
+            // --- THIS IS THE FIX ---
+            // 1. Update the headers separately.
             hot.updateSettings({
-                colHeaders: headers,
-                data: tableData,
-                columns: headers.map(() => ({})),
+                colHeaders: headers
             });
+            // 2. Use loadData to insert the data without removing other rows/columns.
+            hot.loadData(tableData);
         }
     });
 }
@@ -114,12 +118,10 @@ async function main() {
     // Event listeners
     loadCsvButton.addEventListener('click', () => { fileInput.click(); });
     addRowButton.addEventListener('click', () => { hot.alter('insert_row_below'); });
-    addColButton.addEventListener('click', () => {
-        hot.alter('insert_col_end');
-    });
+    addColButton.addEventListener('click', () => { hot.alter('insert_col_end'); });
     clearTableButton.addEventListener('click', () => {
-        hot.loadData([['', ''], ['', '']]);
-        hot.updateSettings({ colHeaders: ['Column A', 'Column B'], columns: [{}, {}] });
+        hot.loadData(Handsontable.helper.createEmptySpreadsheetData(100, 26));
+        hot.updateSettings({ colHeaders: true, columns: true });
     });
     exportCsvButton.addEventListener('click', () => {
         const data = hot.getData();
