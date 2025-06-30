@@ -1,3 +1,6 @@
+// --- FIX: Import WebR at the top of the module ---
+import { WebR } from 'https://webr.r-wasm.org/latest/webr.mjs';
+
 // Wait for the entire HTML page to be ready before running any code
 document.addEventListener('DOMContentLoaded', () => {
     
@@ -179,11 +182,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     plotCanvas.height = plot.height;
                     ctx.drawImage(plot, 0, 0);
                 }
-                const textOutput = result.messages
-                    .filter(msg => msg.type === 'stdout' || msg.type === 'stderr')
-                    .map(msg => msg.data)
-                    .join('\\n');
-                statsOutput.innerText = textOutput;
+                const textOutput = result.stdout + '\\n' + result.stderr;
+                statsOutput.innerText = textOutput.trim();
+                
                 outputsDiv.style.display = 'block';
             } finally {
                 // No result.destroy() needed
@@ -201,5 +202,4 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Start the main application logic
     main();
-
-}); // This is the single, correct closing for the DOMContentLoaded listener
+});
