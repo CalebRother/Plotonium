@@ -4,7 +4,7 @@ document.addEventListener('DOMContentLoaded', () => {
     
     const webR = new WebR();
 
-    // --- FIX: Correctly get references to all elements ---
+    // Get references to all HTML elements
     const fileInput = document.getElementById('csv-file-input');
     const spreadsheetContainer = document.getElementById('spreadsheet-container');
     const runButton = document.getElementById('run-button');
@@ -22,6 +22,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     let selections = [];
 
+    // Initialize Handsontable
     const hot = new Handsontable(spreadsheetContainer, {
         startRows: 1000,
         startCols: 52,
@@ -47,7 +48,6 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     function updateRangeDisplays() {
-        if (!beforeRangeDisplay || !afterRangeDisplay) return;
         if (selections.length === 0) {
             beforeRangeDisplay.textContent = 'None';
             afterRangeDisplay.textContent = 'None';
@@ -84,7 +84,7 @@ document.addEventListener('DOMContentLoaded', () => {
             statusMessage.innerText = "Installing R packages...";
             await webR.evalR("webr::install(c('dplyr', 'rlang', 'ggplot2', 'tidyr', 'rstatix', 'scales', 'ggpubr'))");
             
-            statusMessage.innerText = "Loading R functions...";
+            statusMessage.innerText = "Loading R functions from file...";
             const response = await fetch(`r/paired_comparison.R?v=${new Date().getTime()}`);
             if (!response.ok) {
                 throw new Error(`Failed to fetch R script: ${response.status}`);
@@ -101,6 +101,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    // Event listeners
     importCsvMenu.addEventListener('click', (e) => { e.preventDefault(); fileInput.click(); });
     addRowMenu.addEventListener('click', (e) => { e.preventDefault(); hot.alter('insert_row_below'); });
     addColMenu.addEventListener('click', (e) => { e.preventDefault(); hot.alter('insert_col_end'); });
@@ -128,6 +129,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
     
+    // Run button logic
     runButton.addEventListener('click', async () => {
         if (selections.length < 2) {
             alert("Please select two data ranges in the spreadsheet.");
@@ -170,6 +172,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const result = await shelter.captureR(rCommand);
             
             try {
+                // Handle the plot
                 const plots = result.images;
                 if (plots.length > 0) {
                     const plot = plots[0]; 
@@ -179,14 +182,23 @@ document.addEventListener('DOMContentLoaded', () => {
                     ctx.drawImage(plot, 0, 0);
                 }
 
-                const textOutput = result.messages
-                    .filter(msg => msg.type === 'stdout' || msg.type === 'stderr')
-                    .map(msg => msg.data)
-                    .join('\n');
+                // --- THIS IS THE NEW, ROBUST FIX ---
+                let textOutput = '';
+                // Check if the messages property exists and has content
+                if (result.messages && result.messages.length > 0) {
+                    textOutput = result.messages
+                        .filter(msg => msg.type === 'stdout' || msg.type === 'stderr')
+                        .map(msg => msg.data)
+                        .join('\n');
+                } else {
+                    // Fallback for other potential structures
+                    if (result.stdout) textOutput += result.stdout + '\n';
+                    if (result.stderr) textOutput += result.stderr;
+                }
                 
                 statsOutput.innerText = textOutput.trim();
                 
-                // --- FIX: Make the single output container visible ---
+                // Make the entire output container visible
                 outputsDiv.style.display = 'block';
 
             } finally {
