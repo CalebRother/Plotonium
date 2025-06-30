@@ -53,14 +53,11 @@ function loadCsvData(file) {
     });
 }
 
-// --- THIS FUNCTION IS NOW FIXED AND USED ---
-// Helper function to parse an A1-style range string (e.g., "B2:C10")
+// Helper function to parse an A1-style range string
 function parseA1Range(rangeStr) {
     try {
-        // This regex handles both single cells (e.g., "A1") and ranges (e.g., "B2:C10")
         const [start, end] = rangeStr.split(':');
         const startCoords = Handsontable.helper.cellCoords(start);
-        // If there's no end part, it's a single cell, so end coords are same as start
         const endCoords = end ? Handsontable.helper.cellCoords(end) : startCoords;
 
         return {
@@ -70,7 +67,6 @@ function parseA1Range(rangeStr) {
             endCol: Math.max(startCoords.col, endCoords.col),
         };
     } catch (e) {
-        // Return null if the range string is invalid
         return null;
     }
 }
@@ -131,10 +127,10 @@ async function main() {
         }
     });
     
-    // --- RUN BUTTON LOGIC IS NOW FIXED ---
+    // --- THIS IS THE FULLY CORRECTED RUN BUTTON LOGIC ---
     runButton.addEventListener('click', async () => {
-        const beforeRangeStr = beforeRangeInput.value;
-        const afterRangeStr = afterRangeInput.value;
+        const beforeRangeStr = beforeRangeInput.value.trim();
+        const afterRangeStr = afterRangeInput.value.trim();
 
         if (!beforeRangeStr || !afterRangeStr) {
             alert("Please set both 'Before' and 'After' ranges.");
@@ -147,11 +143,10 @@ async function main() {
 
         const shelter = await new webR.Shelter();
         try {
-            // Use our robust helper function to parse the text input
+            // Use our helper function to parse the text from the input boxes
             const beforeRange = parseA1Range(beforeRangeStr);
             const afterRange = parseA1Range(afterRangeStr);
 
-            // Improved error checking
             if (!beforeRange || !afterRange) {
                  alert("Error: Invalid range format. Please use standard spreadsheet notation (e.g., 'A1' or 'B2:B61').");
                  runButton.disabled = false;
@@ -161,11 +156,11 @@ async function main() {
             }
 
             // Get data from the parsed ranges
-            const beforeData = hot.getData(beforeRange.startRow, beforeRange.startCol, beforeRange.endRow, beforeRange.endCol).flat();
-            const afterData = hot.getData(afterRange.startRow, afterRange.startCol, afterRange.endRow, afterRange.endCol).flat();
+            const beforeData = hot.getData(beforeRange.startRow, beforeRange.startCol, beforeRange.endRow, beforeRange.endCol).flat().filter(v => v !== null && v !== '');
+            const afterData = hot.getData(afterRange.startRow, afterRange.startCol, afterRange.endRow, afterRange.endCol).flat().filter(v => v !== null && v !== '');
 
             if (beforeData.length !== afterData.length || beforeData.length === 0) {
-                 alert("Error: 'Before' and 'After' ranges must contain the same number of cells and not be empty.");
+                 alert("Error: 'Before' and 'After' ranges must contain the same number of non-empty cells.");
                  runButton.disabled = false;
                  statusMessage.innerText = "Ready.";
                  await shelter.purge();
@@ -173,12 +168,16 @@ async function main() {
             }
             
             statusMessage.innerText = "Running analysis...";
-            // The R command logic remains the same and is correct
             const rCommand = `
                 before_vals <- c(${beforeData.join(',')})
                 after_vals <- c(${afterData.join(',')})
                 data <- data.frame(before_col = before_vals, after_col = after_vals)
-                paired_comparison(data = data, before_col = before_col, after_col = after_col)
+                
+                paired_comparison(
+                    data = data, 
+                    before_col = before_col, 
+                    after_col = after_col
+                )
             `;
             
             const result = await shelter.captureR(rCommand);
