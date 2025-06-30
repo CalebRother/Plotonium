@@ -1,7 +1,7 @@
 import { WebR } from 'https://webr.r-wasm.org/latest/webr.mjs';
 const webR = new WebR();
 
-// --- Get references to all HTML elements ---
+// Get references to all HTML elements
 const fileInput = document.getElementById('csv-file-input');
 const spreadsheetContainer = document.getElementById('spreadsheet-container');
 const runButton = document.getElementById('run-button');
@@ -21,7 +21,6 @@ const addRowMenu = document.getElementById('add-row-menu');
 const addColMenu = document.getElementById('add-col-menu');
 const clearTableMenu = document.getElementById('clear-table-menu');
 
-// --- NEW: This variable will hold the coordinates of the last selection ---
 let lastSelection = null;
 
 // Initialize Handsontable
@@ -34,9 +33,7 @@ const hot = new Handsontable(spreadsheetContainer, {
     width: '100%',
     licenseKey: 'non-commercial-and-evaluation',
     contextMenu: true,
-    // --- MODIFIED: This hook now only stores the selection coordinates ---
     afterSelection: (r, c, r2, c2) => {
-        // Find the top-left and bottom-right corners of the selection
         const startRow = Math.min(r, r2);
         const endRow = Math.max(r, r2);
         const startCol = Math.min(c, c2);
@@ -45,20 +42,34 @@ const hot = new Handsontable(spreadsheetContainer, {
     }
 });
 
-function loadCsvData(file) { /* ... This function is correct and remains unchanged ... */ }
+function loadCsvData(file) {
+    Papa.parse(file, {
+        header: false,
+        skipEmptyLines: true,
+        complete: function(results) {
+            if (results.data.length === 0) return;
+            hot.populateFromArray(0, 0, results.data);
+        }
+    });
+}
 
-// --- NEW: Helper function to parse an A1-style range string (e.g., "B2:C10") ---
+// Helper function to parse an A1-style range string
 function parseA1Range(rangeStr) {
-    const [start, end] = rangeStr.split(':');
-    const startCoords = Handsontable.helper.cellCoords(start);
-    const endCoords = end ? Handsontable.helper.cellCoords(end) : startCoords;
+    try {
+        const [start, end] = rangeStr.split(':');
+        const startCoords = Handsontable.helper.cellCoords(start);
+        const endCoords = end ? Handsontable.helper.cellCoords(end) : startCoords;
 
-    return {
-        startRow: Math.min(startCoords.row, endCoords.row),
-        endRow: Math.max(startCoords.row, endCoords.row),
-        startCol: Math.min(startCoords.col, endCoords.col),
-        endCol: Math.max(startCoords.col, endCoords.col),
-    };
+        return {
+            startRow: Math.min(startCoords.row, endCoords.row),
+            endRow: Math.max(startCoords.row, endCoords.row),
+            startCol: Math.min(startCoords.col, endCoords.col),
+            endCol: Math.max(startCoords.col, endCoords.col),
+        };
+    } catch (e) {
+        // Return null if the range string is invalid
+        return null;
+    }
 }
 
 async function main() {
@@ -80,7 +91,7 @@ async function main() {
         statusMessage.innerText = "Error during startup. Check console.";
     }
 
-    // --- MODIFIED: Event listeners for "Set" buttons ---
+    // Event listeners for "Set" buttons
     setBeforeButton.addEventListener('click', () => {
         if (lastSelection) {
             const startCol = Handsontable.helper.colIndexToLabel(lastSelection.startCol);
@@ -101,21 +112,33 @@ async function main() {
         }
     });
 
-    // --- FIX: Re-attaching event listeners to the menu items ---
+    // Event listeners for menu items
     importCsvMenu.addEventListener('click', (e) => { e.preventDefault(); fileInput.click(); });
     addRowMenu.addEventListener('click', (e) => { e.preventDefault(); hot.alter('insert_row_below'); });
     addColMenu.addEventListener('click', (e) => { e.preventDefault(); hot.alter('insert_col_end'); });
-    clearTableMenu.addEventListener('click', (e) => { /* ... existing clear logic ... */ });
-    exportCsvMenu.addEventListener('click', (e) => { /* ... existing export logic ... */ });
+    clearTableMenu.addEventListener('click', (e) => {
+        e.preventDefault();
+        hot.loadData(Handsontable.helper.createEmptySpreadsheetData(1000, 52));
+    });
+    exportCsvMenu.addEventListener('click', (e) => {
+        e.preventDefault();
+        const dataToExport = hot.getSourceData(0,0,hot.countRows()-1, hot.countCols()-1);
+        const csv = Papa.unparse(dataToExport, { header: true });
+        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = 'data.csv';
+        link.click();
+    });
+    
     fileInput.addEventListener('change', (event) => {
         if (event.target.files.length > 0) {
-            // Reusing the same loadCsvData function as before
             loadCsvData(event.target.files[0]);
             fileInput.value = '';
         }
     });
     
-    // --- MODIFIED: Run button logic now uses the new range parser ---
+    // Run button logic
     runButton.addEventListener('click', async () => {
         const beforeRangeStr = beforeRangeInput.value;
         const afterRangeStr = afterRangeInput.value;
@@ -131,21 +154,22 @@ async function main() {
 
         const shelter = await new webR.Shelter();
         try {
-            // Function to get data from a range string
-            const getDataFromRange = (rangeStr) => {
-                try {
-                    const { startRow, endRow, startCol, endCol } = parseA1Range(rangeStr);
-                    return hot.getData(startRow, startCol, endRow, endCol).flat();
-                } catch (e) {
-                    return null; // Return null if range is invalid
-                }
-            };
+            const beforeRange = parseA1Range(beforeRangeStr);
+            const afterRange = parseA1Range(afterRangeStr);
 
-            const beforeData = getDataFromRange(beforeRangeStr);
-            const afterData = getDataFromRange(afterRangeStr);
+            if (!beforeRange || !afterRange) {
+                alert("Invalid range format. Please use 'A1' or 'A1:A50' format.");
+                runButton.disabled = false;
+                statusMessage.innerText = "Ready.";
+                await shelter.purge();
+                return;
+            }
 
-            if (!beforeData || !afterData || beforeData.length !== afterData.length || beforeData.length === 0) {
-                 alert("Error: Invalid range format or ranges have different sizes. Please check your input (e.g., 'A1:A50').");
+            const beforeData = hot.getData(beforeRange.startRow, beforeRange.startCol, beforeRange.endRow, beforeRange.endCol).flat();
+            const afterData = hot.getData(afterRange.startRow, afterRange.startCol, afterRange.endRow, afterRange.endCol).flat();
+
+            if (beforeData.length !== afterData.length || beforeData.length === 0) {
+                 alert("Error: 'Before' and 'After' ranges must have the same number of cells and not be empty.");
                  runButton.disabled = false;
                  statusMessage.innerText = "Ready.";
                  await shelter.purge();
@@ -153,7 +177,6 @@ async function main() {
             }
             
             statusMessage.innerText = "Running analysis...";
-            // --- The R command logic remains the same ---
             const rCommand = `
                 before_vals <- c(${beforeData.join(',')})
                 after_vals <- c(${afterData.join(',')})
@@ -162,8 +185,8 @@ async function main() {
             `;
             
             const result = await shelter.captureR(rCommand);
-            // ... (The rest of the result processing logic is the same)
-             try {
+            
+            try {
                 const plots = result.images;
                 if (plots.length > 0) {
                     const img = document.createElement('img');
@@ -188,18 +211,6 @@ async function main() {
             await shelter.purge();
             statusMessage.innerText = "Analysis complete.";
             runButton.disabled = false;
-        }
-    });
-}
-
-// Re-add the loadCsvData function for completeness
-function loadCsvData(file) {
-    Papa.parse(file, {
-        header: false,
-        skipEmptyLines: true,
-        complete: function(results) {
-            if (results.data.length === 0) return;
-            hot.populateFromArray(0, 0, results.data);
         }
     });
 }
