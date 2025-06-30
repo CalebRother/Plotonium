@@ -53,14 +53,12 @@ function loadCsvData(file) {
     });
 }
 
-// Helper function to parse an A1-style range string
+// Helper function to parse an A1-style range string (e.g., "B2:C10")
 function parseA1Range(rangeStr) {
     try {
         const [start, end] = rangeStr.split(':');
-        // Handsontable's helper can convert A1-style cell coordinates to objects
         const startCoords = Handsontable.helper.cellCoords(start);
         const endCoords = end ? Handsontable.helper.cellCoords(end) : startCoords;
-
         return {
             startRow: Math.min(startCoords.row, endCoords.row),
             endRow: Math.max(startCoords.row, endCoords.row),
@@ -68,7 +66,7 @@ function parseA1Range(rangeStr) {
             endCol: Math.max(startCoords.col, endCoords.col),
         };
     } catch (e) {
-        return null;
+        return null; // Return null if the range string is invalid
     }
 }
 
@@ -91,10 +89,9 @@ async function main() {
         statusMessage.innerText = "Error during startup. Check console.";
     }
 
-    // --- THIS IS THE CORRECTED SECTION ---
+    // --- FIX: Using the correct hot.getColHeader() method ---
     setBeforeButton.addEventListener('click', () => {
         if (lastSelection) {
-            // Use the instance method getColHeader() to get the label from the index
             const startCol = hot.getColHeader(lastSelection.startCol);
             const endCol = hot.getColHeader(lastSelection.endCol);
             beforeRangeInput.value = `${startCol}${lastSelection.startRow + 1}:${endCol}${lastSelection.endRow + 1}`;
@@ -105,7 +102,6 @@ async function main() {
 
     setAfterButton.addEventListener('click', () => {
         if (lastSelection) {
-            // Use the instance method getColHeader() to get the label from the index
             const startCol = hot.getColHeader(lastSelection.startCol);
             const endCol = hot.getColHeader(lastSelection.endCol);
             afterRangeInput.value = `${startCol}${lastSelection.startRow + 1}:${endCol}${lastSelection.endRow + 1}`;
@@ -130,7 +126,7 @@ async function main() {
         }
     });
     
-    // Run button logic
+    // --- FIX: Run button logic now correctly uses the parsed ranges ---
     runButton.addEventListener('click', async () => {
         const beforeRangeStr = beforeRangeInput.value.trim();
         const afterRangeStr = afterRangeInput.value.trim();
@@ -146,6 +142,7 @@ async function main() {
 
         const shelter = await new webR.Shelter();
         try {
+            // Get data from the text boxes, not the mouse selection
             const beforeRange = parseA1Range(beforeRangeStr);
             const afterRange = parseA1Range(afterRangeStr);
 
