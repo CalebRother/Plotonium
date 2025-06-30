@@ -5,14 +5,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Plotonium - WebR Statistics Analyzer</title>
     
-    <script src="https://webr.r-wasm.org/latest/webr.mjs"></script>
-    
     <script src="https://cdn.jsdelivr.net/npm/handsontable/dist/handsontable.full.min.js"></script>
     <link href="https://cdn.jsdelivr.net/npm/handsontable/dist/handsontable.full.min.css" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
     
     <style>
-        /* ... All CSS styles remain the same ... */
+        /* All CSS styles remain the same */
         body { font-family: sans-serif; margin: 0; padding: 0; background-color: #f8f9fa; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
         .top-toolbar { background-color: #fff; border-bottom: 1px solid #ddd; padding: 0 1em; flex-shrink: 0; }
         .top-toolbar ul { list-style: none; margin: 0; padding: 0; display: flex; }
@@ -37,7 +35,7 @@
 </head>
 <body>
     <nav class="top-toolbar">
-        <ul>
+         <ul>
             <li><a href="#">File</a><ul><li><a href="#" id="import-csv-menu">Import CSV</a></li><li><a href="#" id="export-csv-menu">Export CSV</a></li></ul></li>
             <li><a href="#">View</a><ul><li><a href="#">Zoom In (soon)</a></li><li><a href="#">Zoom Out (soon)</a></li></ul></li>
             <li><a href="#">Sheet</a><ul><li><a href="#" id="add-row-menu">Add Row</a></li><li><a href="#" id="add-col-menu">Add Column</a></li><li><a href="#" id="clear-table-menu">Clear Table</a></li></ul></li>
@@ -71,6 +69,6 @@
             <div id="outputs-container"></div>
         </div>
     </div>
-    <script src="js/main.js"></script>
+    <script src="js/main.js" type="module"></script>
 </body>
 </html>
