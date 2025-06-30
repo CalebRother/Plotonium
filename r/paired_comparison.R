@@ -4,7 +4,7 @@ library(rlang)
 library(ggplot2)
 library(rstatix)
 library(scales)
-library(ggpubr)
+# ggpubr is no longer needed for this specific plotting task
 
 paired_comparison <- function(data, before_col, after_col, parametric = FALSE, plot_title = NULL, xlab = NULL, ylab = "Value", before_label = NULL, after_label = NULL, show_paired_lines = TRUE, before_color = NULL, after_color = NULL) {
   
@@ -23,13 +23,9 @@ paired_comparison <- function(data, before_col, after_col, parametric = FALSE, p
     stop("No complete pairs of data found after removing NAs.")
   }
   
-  # --- THE FIX: Pre-calculate the jitter for each subject ---
   set.seed(42)
-  # Create one jitter value per subject, so their before/after points align vertically
-  jitter_values <- runif(nrow(data_clean), -0.15, 0.15)
-  data_clean$x_jitter_amount <- jitter_values
-  # --- End of fix ---
-
+  data_clean$x_jitter_amount <- runif(nrow(data_clean), -0.15, 0.15)
+  
   # Perform the Statistical Test
   if (parametric) {
     stats_res <- data_clean %>% rstatix::t_test(difference ~ 1, mu = 0)
@@ -49,44 +45,39 @@ paired_comparison <- function(data, before_col, after_col, parametric = FALSE, p
     levels(data_long$time) <- c(before_label, after_label)
   }
   
+  # --- THE FIX: Manually prepare the p-value for plotting ---
+  # Create the statistical summary data frame for plotting
+  stat.test <- stats_res %>%
+    rstatix::add_xy_position(x = "time") %>%
+    mutate(y.position = max(data_long$value) * 1.05) # Position bracket above data
+
   # Build the Plot
   if (is.null(plot_title)) plot_title <- paste("Change from", before_str, "to", after_str)
   if (is.null(xlab)) xlab <- "Time Point"
   
-  # --- THE FIX: Tell both points and lines to use the pre-calculated jitter ---
   p <- ggplot2::ggplot(data_long, ggplot2::aes(x = as.numeric(time) + x_jitter_amount, y = value))
   
-  # The boxplot still uses the non-jittered "time" as its x-axis
   p <- p + ggplot2::geom_boxplot(ggplot2::aes(x = as.numeric(time), fill = time, group = time), alpha = 0.7, outlier.shape = NA)
   
   if (show_paired_lines) {
-    # The line now uses the same jittered x-position
     p <- p + ggplot2::geom_line(
       ggplot2::aes(group = subject_id),
       color = "grey70", alpha = 0.5
     )
   }
   
-  # The points now use the same jittered x-position
   p <- p + ggplot2::geom_point(ggplot2::aes(color = time), alpha = 0.8)
   
-  # Add significance comparison
-  p <- p + ggpubr::stat_compare_means(
-    aes(x = as.numeric(time), group = subject_id), # stat_compare_means also needs the non-jittered x
-    method = if (parametric) "t.test" else "wilcox.test",
-    paired = TRUE,
-    comparisons = list(c(1, 2)), # Compare the numeric positions
-    symnum.args = list(
-        cutpoints = c(0, 0.0001, 0.001, 0.01, 0.05, 1),
-        symbols = c("****", "***", "**", "*", "ns")
-    )
+  # --- THE FIX: Use stat_pvalue_manual to add the significance ---
+  p <- p + rstatix::stat_pvalue_manual(
+    stat.test,
+    label = "p.signif", # Use p.signif to show stars
+    tip.length = 0.01
   )
-  # --- End of fix ---
   
   p <- p +
     ggplot2::theme_minimal() +
     ggplot2::theme(legend.position = "none") +
-    # Use the original labels for the x-axis ticks
     ggplot2::scale_x_continuous(breaks = 1:2, labels = levels(data_long$time)) +
     ggplot2::labs(
       title = plot_title,
