@@ -39,17 +39,22 @@ document.addEventListener('DOMContentLoaded', () => {
                 endCol: Math.max(c, c2),
             };
             selections.push(selection);
-            if (selections.length > 2) {
-                selections.shift();
-            }
+            if (selections.length > 2) selections.shift();
             updateRangeDisplays();
         }
     });
 
     function updateRangeDisplays() {
-        if (selections.length === 0) { beforeRangeDisplay.textContent = 'None'; afterRangeDisplay.textContent = 'None'; } 
-        else if (selections.length === 1) { beforeRangeDisplay.textContent = getA1Notation(selections[0]); afterRangeDisplay.textContent = 'None'; } 
-        else { beforeRangeDisplay.textContent = getA1Notation(selections[1]); afterRangeDisplay.textContent = getA1Notation(selections[0]); }
+        if (selections.length === 0) {
+            beforeRangeDisplay.textContent = 'None';
+            afterRangeDisplay.textContent = 'None';
+        } else if (selections.length === 1) {
+            beforeRangeDisplay.textContent = getA1Notation(selections[0]);
+            afterRangeDisplay.textContent = 'None';
+        } else {
+            beforeRangeDisplay.textContent = getA1Notation(selections[0]);
+            afterRangeDisplay.textContent = getA1Notation(selections[1]);
+        }
     }
 
     function getA1Notation(selection) {
@@ -62,7 +67,7 @@ document.addEventListener('DOMContentLoaded', () => {
         Papa.parse(file, {
             header: false,
             skipEmptyLines: true,
-            complete: function(results) {
+            complete: (results) => {
                 if (results.data.length === 0) return;
                 hot.populateFromArray(0, 0, results.data);
             }
@@ -74,11 +79,11 @@ document.addEventListener('DOMContentLoaded', () => {
             statusMessage.innerText = "Initializing WebR...";
             await webR.init();
             statusMessage.innerText = "Installing R packages...";
-            await webR.evalR("webr::install(c('dplyr', 'rlang', 'ggplot2', 'tidyr', 'rstatix', 'scales', 'ggpubr'))");
+            await webR.evalR(`webr::install(c('dplyr', 'rlang', 'ggplot2', 'tidyr', 'rstatix', 'scales', 'ggpubr'))`);
             
             statusMessage.innerText = "Loading R functions from file...";
             const response = await fetch(`r/paired_comparison.R?v=${new Date().getTime()}`);
-            if (!response.ok) { throw new Error(`Failed to fetch R script: ${response.status}`); }
+            if (!response.ok) throw new Error(`Failed to fetch R script: ${response.status}`);
             let rScriptText = await response.text();
             rScriptText = rScriptText.replace(/\r/g, '');
             await webR.evalR(rScriptText);
@@ -92,8 +97,8 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     importCsvMenu.addEventListener('click', (e) => { e.preventDefault(); fileInput.click(); });
-    addRowMenu.addEventListener('click', (e) => { e.preventDefault(); hot.alter('insert_row_below'); });
-    addColMenu.addEventListener('click', (e) => { e.preventDefault(); hot.alter('insert_col_end'); });
+    addRowMenu.addEventListener('click',   (e) => { e.preventDefault(); hot.alter('insert_row_below'); });
+    addColMenu.addEventListener('click',   (e) => { e.preventDefault(); hot.alter('insert_col_end'); });
     clearTableMenu.addEventListener('click', (e) => {
         e.preventDefault();
         hot.loadData(Handsontable.helper.createEmptySpreadsheetData(1000, 52));
@@ -101,8 +106,8 @@ document.addEventListener('DOMContentLoaded', () => {
         updateRangeDisplays();
     });
     exportCsvMenu.addEventListener('click', (e) => { /* ... existing logic ... */ });
-    fileInput.addEventListener('change', (event) => { /* ... existing logic ... */ });
-    
+    fileInput.addEventListener('change',    (e) => { /* ... existing logic ... */ });
+
     runButton.addEventListener('click', async () => {
         if (selections.length < 2) {
             alert("Please select two data ranges in the spreadsheet.");
@@ -117,60 +122,54 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             const afterRange = selections[0];
             const beforeRange = selections[1];
-            const beforeData = hot.getData(beforeRange.startRow, beforeRange.startCol, beforeRange.endRow, beforeRange.endCol).flat().filter(v => v !== null && v !== '');
-            const afterData = hot.getData(afterRange.startRow, afterRange.startCol, afterRange.endRow, afterRange.endCol).flat().filter(v => v !== null && v !== '');
+            const beforeData = hot.getData(beforeRange.startRow, beforeRange.startCol, beforeRange.endRow, beforeRange.endCol)
+                .flat().filter(v => v !== null && v !== '');
+            const afterData = hot.getData(afterRange.startRow, afterRange.startCol, afterRange.endRow, afterRange.endCol)
+                .flat().filter(v => v !== null && v !== '');
 
             if (beforeData.length !== afterData.length || beforeData.length === 0) {
-                 alert("Error: 'Before' and 'After' ranges must contain the same number of non-empty cells.");
-                 runButton.disabled = false;
-                 statusMessage.innerText = "Ready.";
-                 await shelter.purge();
-                 return;
+                alert("Error: 'Before' and 'After' ranges must contain the same number of non-empty cells.");
+                runButton.disabled = false;
+                statusMessage.innerText = "Ready.";
+                await shelter.purge();
+                return;
             }
             
             statusMessage.innerText = "Running analysis...";
             const rCommand = `
                 before_vals <- c(${beforeData.join(',')})
-                after_vals <- c(${afterData.join(',')})
-                data <- data.frame(before_col = before_vals, after_col = after_vals)
+                after_vals  <- c(${afterData.join(',')})
+                data        <- data.frame(before_col = before_vals, after_col = after_vals)
                 paired_comparison(data = data, before_col = before_col, after_col = after_col)
             `;
             
-            // --- THE FIX: Revert to using captureR ---
+            // Use captureR to grab both plots and console output
             const result = await shelter.captureR(rCommand);
             
-            try {
-                // Handle the plot
-                const plots = result.images;
-                if (plots.length > 0) {
-                    const plot = plots[0]; 
-                    const ctx = plotCanvas.getContext('2d');
-                    plotCanvas.width = plot.width;
-                    plotCanvas.height = plot.height;
-                    ctx.drawImage(plot, 0, 0);
-                }
-
-                // --- THE FIX: Correctly process the messages array ---
-                const textOutput = result.messages
-                    .filter(msg => msg.type === 'stdout' || msg.type === 'stderr')
-                    .map(msg => msg.data)
-                    .join('\n');
-                
-                statsOutput.innerText = textOutput.trim();
-                
-                outputsDiv.style.display = 'block';
-
-            } finally {
-                // No destroy method needed on the captureR result object
+            // --- Handle the plot ---
+            const plots = result.images;
+            if (plots.length > 0) {
+                const plot = plots[0]; 
+                const ctx  = plotCanvas.getContext('2d');
+                plotCanvas.width  = plot.width;
+                plotCanvas.height = plot.height;
+                ctx.drawImage(plot, 0, 0);
             }
 
-        } catch(error) {
-            console.error("Failed during analysis:", error);
-            statusMessage.innerText = "An error occurred during analysis. Check console.";
+            // --- THE FIX: Correctly process the output array instead of .messages ---
+            const textOutput = result.output
+                .filter(msg => msg.type === 'stdout' || msg.type === 'stderr')
+                .map(msg => msg.data)
+                .join('\n');
+            
+            statsOutput.innerText = textOutput.trim();
+            outputsDiv.style.display = 'block';
+
         } finally {
+            // Clean up
             await shelter.purge();
-            statusMessage.innerText = "Analysis complete.";
             runButton.disabled = false;
+            statusMessage.innerText = "Ready.";
         }
     });
 
