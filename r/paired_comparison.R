@@ -1,3 +1,11 @@
+# Load all necessary libraries for the function to work
+library(dplyr)
+library(rlang)
+library(ggplot2)
+library(tidyr)
+library(rstatix)
+library(scales)
+
 paired_comparison <- function(data, before_col, after_col, parametric = FALSE, plot_title = NULL, xlab = NULL, ylab = "Value", before_label = NULL, after_label = NULL, show_paired_lines = TRUE, before_color = NULL, after_color = NULL) {
   before_str <- rlang::as_name(rlang::enquo(before_col))
   after_str <- rlang::as_name(rlang::enquo(after_col))
