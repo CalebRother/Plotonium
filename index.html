@@ -15,14 +15,58 @@
             margin: 0;
             padding: 0;
             background-color: #f8f9fa;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
         }
+        
+        /* --- NEW: Toolbar Styles --- */
+        .top-toolbar {
+            background-color: #fff;
+            border-bottom: 1px solid #ddd;
+            padding: 0 1em;
+        }
+        .top-toolbar ul {
+            list-style: none;
+            margin: 0;
+            padding: 0;
+            display: flex;
+        }
+        .top-toolbar > ul > li {
+            position: relative;
+        }
+        .top-toolbar a {
+            display: block;
+            padding: 10px 15px;
+            text-decoration: none;
+            color: #333;
+        }
+        .top-toolbar a:hover {
+            background-color: #eee;
+        }
+        .top-toolbar ul ul {
+            display: none;
+            position: absolute;
+            background-color: #fff;
+            border: 1px solid #ddd;
+            min-width: 180px;
+            z-index: 1000;
+        }
+        .top-toolbar li:hover > ul {
+            display: block;
+        }
+        .top-toolbar ul ul li {
+            width: 100%;
+        }
+
         .app-container {
             display: grid;
-            grid-template-columns: 350px 1fr; /* Left column 350px wide, right takes the rest */
-            grid-template-rows: 100vh; /* Full height of the viewport */
+            grid-template-columns: 350px 1fr;
             gap: 1em;
             padding: 1em;
             box-sizing: border-box;
+            flex-grow: 1; /* Allows container to fill remaining space */
+            overflow: hidden;
         }
         .left-panel {
             display: flex;
@@ -41,46 +85,52 @@
             border: 1px solid #ddd;
             border-radius: 8px;
         }
-        .controls { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
-        .analysis-controls {
-            border-top: 1px solid #eee;
-            padding-top: 1em;
+        #spreadsheet-container {
+            width: 100%;
+            flex-grow: 1;
+            overflow: hidden;
         }
         pre { background-color: #f4f4f4; padding: 1em; white-space: pre-wrap; word-wrap: break-word; }
         button:disabled { cursor: not-allowed; background-color: #ccc; }
-        #spreadsheet-container {
-            width: 100%;
-            flex-grow: 1; /* Allows the spreadsheet to fill the available space */
-            overflow: hidden;
-        }
-        #spreadsheet-container.dragover {
-            border: 2px dashed #3f51b5;
-            background-color: #f0f4ff;
-        }
     </style>
 </head>
 <body>
+
+    <nav class="top-toolbar">
+        <ul>
+            <li>
+                <a href="#">File</a>
+                <ul>
+                    <li><a href="#" id="import-csv-menu">Import CSV</a></li>
+                    <li><a href="#" id="export-csv-menu">Export CSV</a></li>
+                </ul>
+            </li>
+            <li>
+                <a href="#">View</a>
+                <ul>
+                    <li><a href="#">Zoom In (soon)</a></li>
+                    <li><a href="#">Zoom Out (soon)</a></li>
+                </ul>
+            </li>
+            <li>
+                <a href="#">Sheet</a>
+                <ul>
+                    <li><a href="#" id="add-row-menu">Add Row</a></li>
+                    <li><a href="#" id="add-col-menu">Add Column</a></li>
+                    <li><a href="#" id="clear-table-menu">Clear Table</a></li>
+                </ul>
+            </li>
+        </ul>
+    </nav>
+    <input type="file" id="csv-file-input" accept=".csv" style="display: none;">
+
 
     <div class="app-container">
         <div class="left-panel">
             <h2>Plotonium</h2>
             <p>An open-source data analysis tool.</p>
 
-            <div id="data-controls">
-                <h4>Data Input</h4>
-                <div class="controls">
-                    <button id="load-csv-button">Import CSV</button>
-                    <input type="file" id="csv-file-input" accept=".csv" style="display: none;">
-                    <button id="add-row-button">Add Row</button>
-                    <button id="add-col-button">Add Column</button>
-                </div>
-                <div class="controls" style="margin-top: 10px;">
-                     <button id="clear-table-button">Clear Table</button>
-                     <button id="export-csv-button">Export CSV</button>
-                </div>
-            </div>
-
-            <div id="analysis-section" class="analysis-controls">
+            <div id="analysis-section">
                 <h4>Run Paired Comparison</h4>
                 <div class="controls">
                     <label for="before-col-select">"Before":</label>
@@ -94,7 +144,7 @@
                     <button id="run-button" disabled>Run Test</button>
                 </div>
             </div>
-
+    
             <div id="status-message" style="margin-top: 1em;"></div>
 
             <div id="outputs" style="display: none;">
