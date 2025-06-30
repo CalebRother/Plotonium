@@ -12,8 +12,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const outputsDiv = document.getElementById('outputs');
     const plotCanvas = document.getElementById('plot-canvas');
     const statsOutput = document.getElementById('stats-output');
-    const beforeRangeDisplay = document.getElementById('before-range-display');
-    const afterRangeDisplay = document.getElementById('after-range-display');
+    const beforeRangeInput = document.getElementById('before-range-input');
+    const setBeforeButton = document.getElementById('set-before-button');
+    const afterRangeInput = document.getElementById('after-range-input');
+    const setAfterButton = document.getElementById('set-after-button');
     const importCsvMenu = document.getElementById('import-csv-menu');
     const exportCsvMenu = document.getElementById('export-csv-menu');
     const addRowMenu = document.getElementById('add-row-menu');
@@ -21,8 +23,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const clearTableMenu = document.getElementById('clear-table-menu');
     const parametricCheckbox = document.getElementById('parametric-checkbox');
 
-
-    let selections = [];
+    let lastSelection = null;
 
     const hot = new Handsontable(spreadsheetContainer, {
         startRows: 1000,
@@ -34,19 +35,9 @@ document.addEventListener('DOMContentLoaded', () => {
         licenseKey: 'non-commercial-and-evaluation',
         contextMenu: true,
         afterSelectionEnd: (r, c, r2, c2) => {
-            const selection = { startRow: Math.min(r, r2), endRow: Math.max(r, r2), startCol: Math.min(c, c2), endCol: Math.max(c, c2) };
-            selections.push(selection);
-            if (selections.length > 2) selections.shift();
-            updateRangeDisplays();
+            lastSelection = { startRow: Math.min(r, r2), endRow: Math.max(r, r2), startCol: Math.min(c, c2), endCol: Math.max(c, c2) };
         }
     });
-
-    function updateRangeDisplays() {
-        if (!beforeRangeDisplay || !afterRangeDisplay) return;
-        if (selections.length === 0) { beforeRangeDisplay.textContent = 'None'; afterRangeDisplay.textContent = 'None'; } 
-        else if (selections.length === 1) { beforeRangeDisplay.textContent = getA1Notation(selections[0]); afterRangeDisplay.textContent = 'None'; } 
-        else { beforeRangeDisplay.textContent = getA1Notation(selections[1]); afterRangeDisplay.textContent = getA1Notation(selections[0]); }
-    }
 
     function getA1Notation(selection) {
         const startCol = hot.getColHeader(selection.startCol);
@@ -90,7 +81,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-
     async function main() {
         try {
             statusMessage.innerText = "Initializing WebR...";
@@ -111,12 +101,45 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    // --- REVERTED: Event listeners for the "Set" buttons ---
+    setBeforeButton.addEventListener('click', () => {
+        if (lastSelection) {
+            beforeRangeInput.value = getA1Notation(lastSelection);
+        } else {
+            alert("Please select a range of cells in the spreadsheet first.");
+        }
+    });
+
+    setAfterButton.addEventListener('click', () => {
+        if (lastSelection) {
+            afterRangeInput.value = getA1Notation(lastSelection);
+        } else {
+            alert("Please select a range of cells in the spreadsheet first.");
+        }
+    });
+
     importCsvMenu.addEventListener('click', (e) => { e.preventDefault(); fileInput.click(); });
-    // ... other menu event listeners ...
+    addRowMenu.addEventListener('click', (e) => { e.preventDefault(); hot.alter('insert_row_below'); });
+    addColMenu.addEventListener('click', (e) => { e.preventDefault(); hot.alter('insert_col_end'); });
+    clearTableMenu.addEventListener('click', (e) => {
+        e.preventDefault();
+        hot.loadData(Handsontable.helper.createEmptySpreadsheetData(1000, 52));
+    });
+    exportCsvMenu.addEventListener('click', (e) => { /* ... existing export logic ... */ });
+    fileInput.addEventListener('change', (event) => {
+        if (event.target.files.length > 0) {
+            loadCsvData(event.target.files[0]);
+            fileInput.value = '';
+        }
+    });
     
+    // --- REVERTED: Run Button logic now uses the text input values ---
     runButton.addEventListener('click', async () => {
-        if (selections.length < 2) {
-            alert("Please select two data ranges in the spreadsheet.");
+        const beforeRangeStr = beforeRangeInput.value.trim();
+        const afterRangeStr = afterRangeInput.value.trim();
+
+        if (!beforeRangeStr || !afterRangeStr) {
+            alert("Please set both 'Before' and 'After' ranges.");
             return;
         }
 
@@ -126,8 +149,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const shelter = await new webR.Shelter();
         try {
-            const afterRange = selections[0];
-            const beforeRange = selections[1];
+            const beforeRange = parseA1Range(beforeRangeStr);
+            const afterRange = parseA1Range(afterRangeStr);
+
+            if (!beforeRange || !afterRange) {
+                 alert("Error: Invalid range format. Please use standard spreadsheet notation (e.g., 'A1' or 'B2:B61').");
+                 runButton.disabled = false;
+                 statusMessage.innerText = "Ready.";
+                 await shelter.purge();
+                 return;
+            }
+
             const beforeData = hot.getData(beforeRange.startRow, beforeRange.startCol, beforeRange.endRow, beforeRange.endCol).flat().filter(v => v !== null && v !== '');
             const afterData = hot.getData(afterRange.startRow, afterRange.startCol, afterRange.endRow, afterRange.endCol).flat().filter(v => v !== null && v !== '');
 
@@ -154,13 +186,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 )
             `;
             
-            // --- THIS IS THE FIX: Set the plot dimensions when capturing ---
-            const result = await shelter.captureR(rCommand, {
-                with: {
-                    // Set the R plotting device size to be more reasonable for a web layout
-                    options: { width: 500, height: 400 } 
-                }
-            });
+            const result = await shelter.captureR(rCommand);
             
             try {
                 const plots = result.images;
