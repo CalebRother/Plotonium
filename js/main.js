@@ -1,7 +1,7 @@
 import { WebR } from 'https://webr.r-wasm.org/latest/webr.mjs';
 const webR = new WebR();
 
-// --- Get references to all HTML elements ---
+// Get references to all HTML elements
 const fileInput = document.getElementById('csv-file-input');
 const loadCsvButton = document.getElementById('load-csv-button');
 const addRowButton = document.getElementById('add-row-button');
@@ -17,7 +17,7 @@ const outputsDiv = document.getElementById('outputs');
 const plotOutput = document.getElementById('plot-output');
 const statsOutput = document.getElementById('stats-output');
 
-// --- Initialize the Handsontable spreadsheet ---
+// Initialize the Handsontable spreadsheet
 const hot = new Handsontable(spreadsheetContainer, {
     startRows: 1000,
     startCols: 52,
@@ -66,31 +66,17 @@ function updateColumnSelectors() {
     }, 0);
 }
 
-// --- THIS FUNCTION IS MODIFIED TO "PASTE" DATA ---
+// --- THIS FUNCTION IS MODIFIED TO PRESERVE A, B, C HEADERS ---
 function loadCsvData(file) {
     Papa.parse(file, {
-        header: false, // We will handle the header manually
+        header: false, // Treat all rows as data
         skipEmptyLines: true,
         complete: function(results) {
-            const dataWithHeaders = results.data;
+            if (results.data.length === 0) return;
 
-            if (dataWithHeaders.length === 0) {
-                return; // Do nothing if the file is empty
-            }
-
-            // The first row is our headers
-            const headers = dataWithHeaders.shift();
-            // The rest is our data
-            const data = dataWithHeaders;
-
-            // Update the column headers in the spreadsheet
-            hot.updateSettings({
-                colHeaders: headers
-            });
-
-            // "Paste" the data at the top-left (row 0, col 0)
-            // without changing the table's dimensions.
-            hot.populateFromArray(0, 0, data);
+            // "Paste" the entire CSV content (including its header) at the top-left (row 0, col 0),
+            // leaving the spreadsheet's A, B, C... headers untouched.
+            hot.populateFromArray(0, 0, results.data);
         }
     });
 }
@@ -127,11 +113,11 @@ async function main() {
     addColButton.addEventListener('click', () => { hot.alter('insert_col_end'); });
     clearTableButton.addEventListener('click', () => {
         hot.loadData(Handsontable.helper.createEmptySpreadsheetData(1000, 52));
-        hot.updateSettings({ colHeaders: true, columns: true });
     });
     exportCsvButton.addEventListener('click', () => {
+        // Get data, which includes the original headers as the first row.
         const dataToExport = hot.getSourceData(0,0,hot.countRows()-1, hot.countCols()-1);
-        const csv = Papa.unparse(dataToExport, { header: true });
+        const csv = Papa.unparse(dataToExport, { header: false, skipEmptyLines: true });
         const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
         const link = document.createElement('a');
         link.href = URL.createObjectURL(blob);
@@ -173,13 +159,18 @@ async function main() {
         const shelter = await new webR.Shelter();
         try {
             const tableData = hot.getData();
-            const headers = hot.getColHeader();
+            const headers = hot.getColHeader(); // This will be ['A', 'B', 'C', ...]
+            
+            // Create a CSV string for R with A, B, C... as the headers
             let csvContent = Papa.unparse({ fields: headers, data: tableData }, { skipEmptyLines: false });
+            
             await webR.FS.writeFile('/tmp/current_data.csv', csvContent);
 
             const rCommand = `
+                # read.csv will now use A, B, C... as column names
                 data <- read.csv('/tmp/current_data.csv', check.names = FALSE)
                 
+                # The paired_comparison function receives the letter name, which now matches the data
                 paired_comparison(
                     data = data,
                     before_col = \`${beforeCol}\`,
