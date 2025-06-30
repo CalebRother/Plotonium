@@ -40,7 +40,9 @@
         </ul>
     </nav>
     <input type="file" id="csv-file-input" accept=".csv" style="display: none;">
+
     <div class="app-container">
+        
         <div class="panel output-panel">
             <h2>Output Window</h2>
             <div id="outputs" style="display: none;">
@@ -49,9 +51,11 @@
                 <pre><code id="stats-output"></code></pre>
             </div>
         </div>
+
         <div class="panel spreadsheet-panel">
             <div id="spreadsheet-container"></div>
         </div>
+        
         <div class="panel controls-panel">
             <div id="analysis-section">
                 <h3>Plotonium</h3>
@@ -59,13 +63,21 @@
                 <h4>Run Paired Comparison</h4>
                 <div class="range-display">Before Range: <span id="before-range-display">None</span></div>
                 <div class="range-display">After Range: <span id="after-range-display">None</span></div>
+                
+                <div class="controls" style="margin-top: 10px;">
+                    <input type="checkbox" id="parametric-checkbox">
+                    <label for="parametric-checkbox">Assume normal distribution (run parametric test)</label>
+                </div>
+
                 <div class="controls" style="margin-top: 10px;">
                     <button id="run-button" disabled>Run Test</button>
                 </div>
             </div>
             <div id="status-message" style="margin-left: 2em; margin-top: 1em;"></div>
         </div>
+
     </div>
+
     <script src="js/main.js" type="module"></script>
 </body>
 </html>
