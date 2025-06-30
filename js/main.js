@@ -57,6 +57,7 @@ function loadCsvData(file) {
 function parseA1Range(rangeStr) {
     try {
         const [start, end] = rangeStr.split(':');
+        // Handsontable's helper can convert A1-style cell coordinates to objects
         const startCoords = Handsontable.helper.cellCoords(start);
         const endCoords = end ? Handsontable.helper.cellCoords(end) : startCoords;
 
@@ -90,11 +91,12 @@ async function main() {
         statusMessage.innerText = "Error during startup. Check console.";
     }
 
-    // Event listeners for "Set" buttons
+    // --- THIS IS THE CORRECTED SECTION ---
     setBeforeButton.addEventListener('click', () => {
         if (lastSelection) {
-            const startCol = Handsontable.helper.colIndexToLabel(lastSelection.startCol);
-            const endCol = Handsontable.helper.colIndexToLabel(lastSelection.endCol);
+            // Use the instance method getColHeader() to get the label from the index
+            const startCol = hot.getColHeader(lastSelection.startCol);
+            const endCol = hot.getColHeader(lastSelection.endCol);
             beforeRangeInput.value = `${startCol}${lastSelection.startRow + 1}:${endCol}${lastSelection.endRow + 1}`;
         } else {
             alert("Please select a range of cells in the spreadsheet first.");
@@ -103,8 +105,9 @@ async function main() {
 
     setAfterButton.addEventListener('click', () => {
         if (lastSelection) {
-            const startCol = Handsontable.helper.colIndexToLabel(lastSelection.startCol);
-            const endCol = Handsontable.helper.colIndexToLabel(lastSelection.endCol);
+            // Use the instance method getColHeader() to get the label from the index
+            const startCol = hot.getColHeader(lastSelection.startCol);
+            const endCol = hot.getColHeader(lastSelection.endCol);
             afterRangeInput.value = `${startCol}${lastSelection.startRow + 1}:${endCol}${lastSelection.endRow + 1}`;
         } else {
             alert("Please select a range of cells in the spreadsheet first.");
@@ -127,7 +130,7 @@ async function main() {
         }
     });
     
-    // --- THIS IS THE FULLY CORRECTED RUN BUTTON LOGIC ---
+    // Run button logic
     runButton.addEventListener('click', async () => {
         const beforeRangeStr = beforeRangeInput.value.trim();
         const afterRangeStr = afterRangeInput.value.trim();
@@ -143,7 +146,6 @@ async function main() {
 
         const shelter = await new webR.Shelter();
         try {
-            // Use our helper function to parse the text from the input boxes
             const beforeRange = parseA1Range(beforeRangeStr);
             const afterRange = parseA1Range(afterRangeStr);
 
@@ -155,7 +157,6 @@ async function main() {
                  return;
             }
 
-            // Get data from the parsed ranges
             const beforeData = hot.getData(beforeRange.startRow, beforeRange.startCol, beforeRange.endRow, beforeRange.endCol).flat().filter(v => v !== null && v !== '');
             const afterData = hot.getData(afterRange.startRow, afterRange.startCol, afterRange.endRow, afterRange.endCol).flat().filter(v => v !== null && v !== '');
 
