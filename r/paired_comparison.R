@@ -2,12 +2,12 @@
 library(dplyr)
 library(rlang)
 library(ggplot2)
-library(tidyr)
 library(rstatix)
 library(scales)
 
 paired_comparison <- function(data, before_col, after_col, parametric = FALSE, plot_title = NULL, xlab = NULL, ylab = "Value", before_label = NULL, after_label = NULL, show_paired_lines = TRUE, before_color = NULL, after_color = NULL) {
-  # --- Handle Inputs & Prepare Data ---
+  
+  # --- Step 1: Handle Inputs & Prepare Data ---
   before_str <- rlang::as_name(rlang::enquo(before_col))
   after_str <- rlang::as_name(rlang::enquo(after_col))
   
@@ -26,7 +26,7 @@ paired_comparison <- function(data, before_col, after_col, parametric = FALSE, p
   set.seed(42)
   data_clean$x_jitter <- runif(nrow(data_clean), min = -0.2, max = 0.2)
   
-  # --- Perform the Statistical Test ---
+  # --- Step 2: Perform the Statistical Test (This part is stable) ---
   if (parametric) {
     stats_res <- data_clean %>% rstatix::t_test(difference ~ 1, mu = 0)
     test_name <- "Paired t-Test"
@@ -35,7 +35,7 @@ paired_comparison <- function(data, before_col, after_col, parametric = FALSE, p
     test_name <- "Wilcoxon Signed-Rank Test"
   }
   
-  # --- THIS IS THE FIX: Reshape data using Base R instead of dplyr/tidyr ---
+  # --- Step 3 (THE FIX): Reshape data using Base R, not the Tidyverse ---
   df_before <- data.frame(
     subject_id = data_clean$subject_id,
     time = before_str,
@@ -48,10 +48,12 @@ paired_comparison <- function(data, before_col, after_col, parametric = FALSE, p
     value = data_clean[[after_str]],
     x_jitter = data_clean$x_jitter
   )
+  # Combine the two data frames into one "long" data frame
   data_long <- rbind(df_before, df_after)
   data_long$time <- factor(data_long$time, levels = c(before_str, after_str))
   # --- End of fix ---
 
+  # --- Step 4: Build the Plot (This part is stable) ---
   if (!is.null(before_label) && !is.null(after_label)) {
     levels(data_long$time) <- c(before_label, after_label)
   }
