@@ -1,10 +1,7 @@
-// --- FIX: Import WebR at the top of the module ---
 import { WebR } from 'https://webr.r-wasm.org/latest/webr.mjs';
 
-// Wait for the entire HTML page to be ready before running any code
 document.addEventListener('DOMContentLoaded', () => {
     
-    // All of our application code now lives inside this listener
     const webR = new WebR();
 
     // Get references to all HTML elements
@@ -116,7 +113,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     exportCsvMenu.addEventListener('click', (e) => {
          e.preventDefault();
-        const cleanData = hot.getSourceData().filter(row => !hot.isEmptyRow(hot.getSourceData().indexOf(row)));
+        const cleanData = hot.getSourceData().filter((row, index) => !hot.isEmptyRow(index));
         const headers = hot.getColHeader().slice(0, hot.countCols());
         const csv = Papa.unparse({ fields: headers, data: cleanData });
         const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
@@ -141,6 +138,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         runButton.disabled = true;
         statusMessage.innerText = "Processing data...";
+        plotOutput.style.display = 'none';
         outputsDiv.style.display = 'none';
 
         const shelter = await new webR.Shelter();
@@ -173,7 +171,9 @@ document.addEventListener('DOMContentLoaded', () => {
             `;
             
             const result = await shelter.captureR(rCommand);
+            
             try {
+                // Handle the plot
                 const plots = result.images;
                 if (plots.length > 0) {
                     const plot = plots[0]; 
@@ -182,10 +182,18 @@ document.addEventListener('DOMContentLoaded', () => {
                     plotCanvas.height = plot.height;
                     ctx.drawImage(plot, 0, 0);
                 }
-                const textOutput = result.stdout + '\\n' + result.stderr;
+
+                // --- THIS IS THE FIX: Correctly process the messages array ---
+                const textOutput = result.messages
+                    .filter(msg => msg.type === 'stdout' || msg.type === 'stderr')
+                    .map(msg => msg.data)
+                    .join('\n');
+                
                 statsOutput.innerText = textOutput.trim();
                 
+                // Make the entire output panel visible
                 outputsDiv.style.display = 'block';
+
             } finally {
                 // No result.destroy() needed
             }
@@ -200,6 +208,5 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // Start the main application logic
     main();
 });
