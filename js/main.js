@@ -1,6 +1,7 @@
-// --- FIX: No longer need to import WebR, it's loaded globally from index.html ---
-// document.addEventListener('DOMContentLoaded', () => { ... }); is still needed
+// --- FIX: Import WebR at the top of the module ---
+import { WebR } from 'https://webr.r-wasm.org/latest/webr.mjs';
 
+// Wait for the entire HTML page to be ready before running any code
 document.addEventListener('DOMContentLoaded', () => {
     
     // All of our application code now lives inside this listener
@@ -201,5 +202,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
+    // Start the main application logic
     main();
 });
