@@ -2,20 +2,18 @@
 library(dplyr)
 library(rlang)
 library(ggplot2)
+library(tidyr)
 library(rstatix)
 library(scales)
 
 paired_comparison <- function(data, before_col, after_col, parametric = FALSE, plot_title = NULL, xlab = NULL, ylab = "Value", before_label = NULL, after_label = NULL, show_paired_lines = TRUE, before_color = NULL, after_color = NULL) {
   
-  # --- Step 1: Handle Inputs & Prepare Data ---
   before_str <- rlang::as_name(rlang::enquo(before_col))
   after_str <- rlang::as_name(rlang::enquo(after_col))
   
   data$subject_id <- 1:nrow(data)
-  
   data_clean <- data
   data_clean$difference <- data_clean[[after_str]] - data_clean[[before_str]]
-  
   data_subset <- data_clean[, c("subject_id", before_str, after_str, "difference")]
   data_clean <- na.omit(data_subset)
   
@@ -26,7 +24,6 @@ paired_comparison <- function(data, before_col, after_col, parametric = FALSE, p
   set.seed(42)
   data_clean$x_jitter <- runif(nrow(data_clean), min = -0.2, max = 0.2)
   
-  # --- Step 2: Perform the Statistical Test (This part is stable) ---
   if (parametric) {
     stats_res <- data_clean %>% rstatix::t_test(difference ~ 1, mu = 0)
     test_name <- "Paired t-Test"
@@ -35,25 +32,12 @@ paired_comparison <- function(data, before_col, after_col, parametric = FALSE, p
     test_name <- "Wilcoxon Signed-Rank Test"
   }
   
-  # --- Step 3 (THE FIX): Reshape data using Base R, not the Tidyverse ---
-  df_before <- data.frame(
-    subject_id = data_clean$subject_id,
-    time = before_str,
-    value = data_clean[[before_str]],
-    x_jitter = data_clean$x_jitter
-  )
-  df_after <- data.frame(
-    subject_id = data_clean$subject_id,
-    time = after_str,
-    value = data_clean[[after_str]],
-    x_jitter = data_clean$x_jitter
-  )
-  # Combine the two data frames into one "long" data frame
+  # --- Reshape data using more robust Base R functions ---
+  df_before <- data.frame(subject_id = data_clean$subject_id, time = before_str, value = data_clean[[before_str]], x_jitter = data_clean$x_jitter)
+  df_after <- data.frame(subject_id = data_clean$subject_id, time = after_str, value = data_clean[[after_str]], x_jitter = data_clean$x_jitter)
   data_long <- rbind(df_before, df_after)
   data_long$time <- factor(data_long$time, levels = c(before_str, after_str))
-  # --- End of fix ---
 
-  # --- Step 4: Build the Plot (This part is stable) ---
   if (!is.null(before_label) && !is.null(after_label)) {
     levels(data_long$time) <- c(before_label, after_label)
   }
@@ -61,7 +45,8 @@ paired_comparison <- function(data, before_col, after_col, parametric = FALSE, p
   if (is.null(plot_title)) plot_title <- paste("Change from", before_str, "to", after_str)
   if (is.null(xlab)) xlab <- "Time Point"
   
-  p_value_formatted <- rstatix::pvalue(stats_res$p, accuracy = 0.001, add_p = TRUE)
+  # --- THIS IS THE FIX: Using the robust p_format() function ---
+  p_value_formatted <- stats_res %>% rstatix::p_format(p, add.p = TRUE)
   plot_subtitle <- paste(test_name, ", ", p_value_formatted, sep = "")
   
   p <- ggplot2::ggplot(data_long, ggplot2::aes(y = value))
