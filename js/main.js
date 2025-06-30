@@ -21,7 +21,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const addRowMenu = document.getElementById('add-row-menu');
     const addColMenu = document.getElementById('add-col-menu');
     const clearTableMenu = document.getElementById('clear-table-menu');
-    const parametricCheckbox = document.getElementById('parametric-checkbox');
+    
+    // The reference to the checkbox is now removed
 
     let lastSelection = null;
 
@@ -57,29 +58,19 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // --- NEW: A custom-built, robust function to parse A1 notation ---
     function parseA1Range(rangeStr) {
         try {
             const colToIdx = (col) => col.split('').reduce((acc, val) => acc * 26 + val.charCodeAt(0) - 64, 0) - 1;
-            
             const [start, end] = rangeStr.toUpperCase().split(':');
-            
             const startMatch = start.match(/^([A-Z]+)(\d+)$/);
             if (!startMatch) return null;
-            
             const startCol = colToIdx(startMatch[1]);
             const startRow = parseInt(startMatch[2], 10) - 1;
-
-            if (!end) { // Single cell range like "A1"
-                return { startRow, startCol, endRow: startRow, endCol: startCol };
-            }
-
+            if (!end) { return { startRow, startCol, endRow: startRow, endCol: startCol }; }
             const endMatch = end.match(/^([A-Z]+)(\d+)$/);
             if (!endMatch) return null;
-
             const endCol = colToIdx(endMatch[1]);
             const endRow = parseInt(endMatch[2], 10) - 1;
-
             return {
                 startRow: Math.min(startRow, endRow),
                 startCol: Math.min(startCol, endCol),
@@ -91,7 +82,6 @@ document.addEventListener('DOMContentLoaded', () => {
             return null;
         }
     }
-
 
     async function main() {
         try {
@@ -132,7 +122,6 @@ document.addEventListener('DOMContentLoaded', () => {
     importCsvMenu.addEventListener('click', (e) => { e.preventDefault(); fileInput.click(); });
     // ... other menu event listeners ...
     
-    // The Run Button logic remains the same, but will now use our new parser
     runButton.addEventListener('click', async () => {
         const beforeRangeStr = beforeRangeInput.value.trim();
         const afterRangeStr = afterRangeInput.value.trim();
@@ -148,7 +137,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const shelter = await new webR.Shelter();
         try {
-            // This now uses our new, robust parser
             const beforeRange = parseA1Range(beforeRangeStr);
             const afterRange = parseA1Range(afterRangeStr);
 
@@ -171,18 +159,19 @@ document.addEventListener('DOMContentLoaded', () => {
                  return;
             }
             
-            const isParametric = parametricCheckbox.checked;
+            // --- FIX: Removed reference to the non-existent checkbox ---
             statusMessage.innerText = "Running analysis...";
             const rCommand = `
                 before_vals <- c(${beforeData.join(',')})
                 after_vals <- c(${afterData.join(',')})
                 data <- data.frame(before_col = before_vals, after_col = after_vals)
                 
+                # We default to a non-parametric test for now
                 paired_comparison(
                     data = data, 
                     before_col = before_col, 
                     after_col = after_col,
-                    parametric = ${isParametric ? 'TRUE' : 'FALSE'}
+                    parametric = FALSE 
                 )
             `;
             
