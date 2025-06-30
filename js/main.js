@@ -1,7 +1,7 @@
 import { WebR } from 'https://webr.r-wasm.org/latest/webr.mjs';
 const webR = new WebR();
 
-// --- Get references to all HTML elements ---
+// Get references to all HTML elements
 const fileInput = document.getElementById('csv-file-input');
 const spreadsheetContainer = document.getElementById('spreadsheet-container');
 const runButton = document.getElementById('run-button');
@@ -17,7 +17,6 @@ const addRowMenu = document.getElementById('add-row-menu');
 const addColMenu = document.getElementById('add-col-menu');
 const clearTableMenu = document.getElementById('clear-table-menu');
 
-// --- NEW, SIMPLER APPROACH: Store the last two selections ---
 let selections = [];
 
 // Initialize Handsontable
@@ -30,24 +29,17 @@ const hot = new Handsontable(spreadsheetContainer, {
     width: '100%',
     licenseKey: 'non-commercial-and-evaluation',
     contextMenu: true,
-    // --- This hook now drives the entire selection logic ---
     afterSelectionEnd: (r, c, r2, c2) => {
-        // Get selection coordinates
         const selection = {
             startRow: Math.min(r, r2),
             endRow: Math.max(r, r2),
             startCol: Math.min(c, c2),
             endCol: Math.max(c, c2),
         };
-        
-        // Add the new selection to our array
         selections.push(selection);
-        // Keep only the last two selections
         if (selections.length > 2) {
             selections.shift();
         }
-        
-        // Update the UI to show the user what is stored
         updateRangeDisplays();
     }
 });
@@ -60,7 +52,6 @@ function updateRangeDisplays() {
         beforeRangeDisplay.textContent = getA1Notation(selections[0]);
         afterRangeDisplay.textContent = 'None';
     } else {
-        // The first selection is now the "After" group, the newest one is the "Before"
         beforeRangeDisplay.textContent = getA1Notation(selections[1]);
         afterRangeDisplay.textContent = getA1Notation(selections[0]);
     }
@@ -90,12 +81,20 @@ async function main() {
         await webR.init();
         statusMessage.innerText = "Installing R packages...";
         await webR.evalR("webr::install(c('dplyr', 'rlang', 'ggplot2', 'tidyr', 'rstatix', 'scales'))");
-        statusMessage.innerText = "Loading R functions...";
-        const response = await fetch('r/paired_comparison.R');
-        if (!response.ok) { throw new Error(`Failed to fetch R script: ${response.status}`); }
+        
+        statusMessage.innerText = "Loading R functions from file...";
+
+        // --- THE CACHE BUSTING FIX ---
+        // Add a unique timestamp to the URL to force the browser to download a fresh file.
+        const response = await fetch(`r/paired_comparison.R?v=${new Date().getTime()}`);
+        
+        if (!response.ok) {
+            throw new Error(`Failed to fetch R script: ${response.status}`);
+        }
         let rScriptText = await response.text();
         rScriptText = rScriptText.replace(/\r/g, '');
         await webR.evalR(rScriptText);
+        
         statusMessage.innerText = "Ready.";
         runButton.disabled = false;
     } catch (error) {
@@ -110,7 +109,7 @@ async function main() {
     clearTableMenu.addEventListener('click', (e) => {
         e.preventDefault();
         hot.loadData(Handsontable.helper.createEmptySpreadsheetData(1000, 52));
-        selections = []; // Clear selections as well
+        selections = [];
         updateRangeDisplays();
     });
     exportCsvMenu.addEventListener('click', (e) => { /* ... existing export logic ... */ });
@@ -121,7 +120,7 @@ async function main() {
         }
     });
     
-    // --- The new, simpler Run button logic ---
+    // Run button logic
     runButton.addEventListener('click', async () => {
         if (selections.length < 2) {
             alert("Please select two data ranges in the spreadsheet.");
@@ -134,7 +133,6 @@ async function main() {
 
         const shelter = await new webR.Shelter();
         try {
-            // The "After" data is the first selection, "Before" is the second
             const afterRange = selections[0];
             const beforeRange = selections[1];
             
