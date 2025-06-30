@@ -18,55 +18,27 @@
             display: flex;
             flex-direction: column;
             height: 100vh;
-            overflow: hidden; /* Prevent body from scrolling */
+            overflow: hidden;
         }
         
         .top-toolbar {
             background-color: #fff;
             border-bottom: 1px solid #ddd;
             padding: 0 1em;
-            flex-shrink: 0; /* Prevent toolbar from shrinking */
+            flex-shrink: 0;
         }
-        .top-toolbar ul {
-            list-style: none;
-            margin: 0;
-            padding: 0;
-            display: flex;
-        }
-        .top-toolbar > ul > li {
-            position: relative;
-        }
-        .top-toolbar a {
-            display: block;
-            padding: 10px 15px;
-            text-decoration: none;
-            color: #333;
-        }
-        .top-toolbar a:hover {
-            background-color: #eee;
-        }
-        .top-toolbar ul ul {
-            display: none;
-            position: absolute;
-            background-color: #fff;
-            border: 1px solid #ddd;
-            min-width: 180px;
-            z-index: 1000;
-        }
-        .top-toolbar li:hover > ul {
-            display: block;
-        }
-        .top-toolbar ul ul li {
-            width: 100%;
-        }
+        .top-toolbar ul { list-style: none; margin: 0; padding: 0; display: flex; }
+        .top-toolbar > ul > li { position: relative; }
+        .top-toolbar a { display: block; padding: 10px 15px; text-decoration: none; color: #333; }
+        .top-toolbar a:hover { background-color: #eee; }
+        .top-toolbar ul ul { display: none; position: absolute; background-color: #fff; border: 1px solid #ddd; min-width: 180px; z-index: 1000; }
+        .top-toolbar li:hover > ul { display: block; }
+        .top-toolbar ul ul li { width: 100%; }
 
-        /* --- NEW: CSS Grid Layout for the main app --- */
         .app-container {
             display: grid;
-            /* Define 2 columns and 2 rows */
             grid-template-columns: 400px 1fr;
-            grid-template-rows: 60fr 40fr; /* Top panels take 60%, bottom takes 40% */
-            /* Name the grid areas for easy placement */
+            grid-template-rows: 60fr 40fr;
             grid-template-areas:
                 "controls spreadsheet"
                 "output   output";
@@ -77,55 +49,47 @@
             overflow: hidden;
         }
         
-        /* --- NEW: Styles for each panel --- */
         .panel {
             display: flex;
             flex-direction: column;
             background-color: #fff;
             border: 1px solid #ddd;
             border-radius: 8px;
-            overflow: auto; /* Add scrollbars if content overflows */
+            overflow: auto;
             padding: 1em;
         }
         .controls-panel   { grid-area: controls; }
-        .spreadsheet-panel { grid-area: spreadsheet; padding: 0; } /* No padding for spreadsheet div */
+        .spreadsheet-panel { grid-area: spreadsheet; padding: 0; }
         .output-panel     { grid-area: output; }
         
-        #spreadsheet-container {
-            width: 100%;
-            height: 100%; /* Make spreadsheet fill its panel */
-            overflow: hidden;
-        }
+        #spreadsheet-container { width: 100%; height: 100%; overflow: hidden; }
         pre { background-color: #f4f4f4; padding: 1em; white-space: pre-wrap; word-wrap: break-word; }
         button:disabled { cursor: not-allowed; background-color: #ccc; }
+
+        /* --- NEW: Styles for the range selector --- */
+        .range-selector {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+        .range-selector label {
+            flex-shrink: 0;
+            width: 60px;
+        }
+        .range-selector input[type="text"] {
+            flex-grow: 1;
+        }
+
     </style>
 </head>
 <body>
 
     <nav class="top-toolbar">
         <ul>
-            <li>
-                <a href="#">File</a>
-                <ul>
-                    <li><a href="#" id="import-csv-menu">Import CSV</a></li>
-                    <li><a href="#" id="export-csv-menu">Export CSV</a></li>
-                </ul>
-            </li>
-            <li>
-                <a href="#">View</a>
-                <ul>
-                    <li><a href="#">Zoom In (soon)</a></li>
-                    <li><a href="#">Zoom Out (soon)</a></li>
-                </ul>
-            </li>
-            <li>
-                <a href="#">Sheet</a>
-                <ul>
-                    <li><a href="#" id="add-row-menu">Add Row</a></li>
-                    <li><a href="#" id="add-col-menu">Add Column</a></li>
-                    <li><a href="#" id="clear-table-menu">Clear Table</a></li>
-                </ul>
-            </li>
+            <li><a href="#">File</a><ul><li><a href="#" id="import-csv-menu">Import CSV</a></li><li><a href="#" id="export-csv-menu">Export CSV</a></li></ul></li>
+            <li><a href="#">View</a><ul><li><a href="#">Zoom In (soon)</a></li><li><a href="#">Zoom Out (soon)</a></li></ul></li>
+            <li><a href="#">Sheet</a><ul><li><a href="#" id="add-row-menu">Add Row</a></li><li><a href="#" id="add-col-menu">Add Column</a></li><li><a href="#" id="clear-table-menu">Clear Table</a></li></ul></li>
         </ul>
     </nav>
     <input type="file" id="csv-file-input" accept=".csv" style="display: none;">
@@ -134,36 +98,28 @@
     <div class="app-container">
         <div class="panel controls-panel">
             <h2>Plotonium</h2>
-            <p>An open-source data analysis tool.</p>
-
-            <div id="data-controls">
-                <h4>Data Input</h4>
-                <div class="controls">
-                    </div>
-            </div>
+            <p>Select cells in the spreadsheet and assign them to a group.</p>
 
             <div id="analysis-section">
                 <h4>Run Paired Comparison</h4>
-                <div class="controls">
-                    <label for="before-col-select">"Before":</label>
-                    <select id="before-col-select"></select>
+                <div class="range-selector">
+                    <label for="before-range-input">Before:</label>
+                    <input type="text" id="before-range-input" placeholder="e.g., A1:A50" readonly>
+                    <button id="set-before-button">Set</button>
                 </div>
-                 <div class="controls" style="margin-top: 10px;">
-                    <label for="after-col-select">"After":</label>
-                    <select id="after-col-select"></select>
+                <div class="range-selector">
+                    <label for="after-range-input">After:</label>
+                    <input type="text" id="after-range-input" placeholder="e.g., B1:B50" readonly>
+                    <button id="set-after-button">Set</button>
                 </div>
+                
                 <div class="controls" style="margin-top: 10px;">
                     <button id="run-button" disabled>Run Test</button>
                 </div>
             </div>
+    
             <div id="status-message" style="margin-top: 1em;"></div>
-        </div>
 
-        <div class="panel spreadsheet-panel">
-            <div id="spreadsheet-container"></div>
-        </div>
-
-        <div class="panel output-panel">
             <div id="outputs" style="display: none;">
                 <h2>Results</h2>
                 <div id="plot-output"></div>
@@ -171,6 +127,13 @@
                 <pre><code id="stats-output"></code></pre>
             </div>
         </div>
+
+        <div class="panel spreadsheet-panel">
+            <div id="spreadsheet-container"></div>
+        </div>
+
+        <div class="panel output-panel">
+            <div id="outputs-container"></div> </div>
     </div>
 
     <script src="js/main.js" type="module"></script>
