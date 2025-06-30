@@ -138,6 +138,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         runButton.disabled = true;
         statusMessage.innerText = "Processing data...";
+        plotOutput.style.display = 'none';
         outputsDiv.style.display = 'none';
 
         const shelter = await new webR.Shelter();
@@ -172,6 +173,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const result = await shelter.captureR(rCommand);
             
             try {
+                // Handle the plot
                 const plots = result.images;
                 if (plots.length > 0) {
                     const plot = plots[0]; 
@@ -182,11 +184,15 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
 
                 // --- THIS IS THE FIX ---
-                // The result object has stdout and stderr properties directly.
-                // We combine them to get all text output.
-                const textOutput = result.stdout + '\n' + result.stderr;
+                // Correctly process the messages array from the result object.
+                const textOutput = result.messages
+                    .filter(msg => msg.type === 'stdout' || msg.type === 'stderr')
+                    .map(msg => msg.data)
+                    .join('\n');
+                
                 statsOutput.innerText = textOutput.trim();
                 
+                // Make the entire output container visible
                 outputsDiv.style.display = 'block';
 
             } finally {
@@ -203,6 +209,5 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // Start the main application logic
     main();
 });
