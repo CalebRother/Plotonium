@@ -224,16 +224,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
     main();
 
-    // --- Add Split.js Initialization ---
-    Split(['#top-panels-container', '#controls-panel'], {
-        sizes: [70, 30],
+    // --- Initialize Split.js for the new layout ---
+    Split(['#top-area', '#controls-panel'], {
         direction: 'vertical',
+        sizes: [70, 30], // Initial proportions: 70% for top, 30% for bottom
         minSize: [200, 150],
         gutterSize: 10,
     });
 
     Split(['#output-panel', '#spreadsheet-panel'], {
-        sizes: [50, 50],
+        sizes: [50, 50], // Initial proportions: 50% / 50%
         minSize: 300,
         gutterSize: 10,
         onDrag: function() {
