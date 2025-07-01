@@ -11,7 +11,9 @@
     <script src="https://unpkg.com/split.js/dist/split.min.js"></script>
 
     <style>
-        body { font-family: sans-serif; margin: 0; padding: 0; background-color: #f8f9fa; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+        html, body { height: 100%; margin: 0; padding: 0; overflow: hidden; }
+        body { font-family: sans-serif; background-color: #f8f9fa; display: flex; flex-direction: column; }
+        
         .top-toolbar { background-color: #fff; border-bottom: 1px solid #ddd; padding: 0 1em; flex-shrink: 0; }
         .top-toolbar ul { list-style: none; margin: 0; padding: 0; display: flex; }
         .top-toolbar > ul > li { position: relative; }
@@ -20,29 +22,30 @@
         .top-toolbar ul ul { display: none; position: absolute; background-color: #fff; border: 1px solid #ddd; min-width: 180px; z-index: 1000; }
         .top-toolbar li:hover > ul { display: block; }
 
-        /* Use Flexbox for the main layout to support Split.js */
-        .app-container { display: flex; flex-direction: column; flex-grow: 1; padding: 1em; gap: 1em; box-sizing: border-box; }
-        #top-area { display: flex; flex-direction: row; gap: 1em; }
+        /* Stable Flexbox Layout */
+        .app-container { display: flex; flex-direction: column; flex-grow: 1; padding: 1em; gap: 1em; box-sizing: border-box; min-height: 0; }
+        #top-area { display: flex; flex-direction: row; gap: 1em; flex-grow: 1; min-height: 0; }
         
-        /* General panel styling */
+        /* Set initial sizes and prevent panels from collapsing */
+        #output-panel, #spreadsheet-panel { flex: 1 1 50%; min-width: 0; }
+        #controls-panel { flex-shrink: 0; height: 200px; }
+
         .panel { display: flex; flex-direction: column; background-color: #fff; border: 1px solid #ddd; border-radius: 8px; overflow: auto; padding: 1em; }
         .spreadsheet-panel { padding: 0; }
-        .controls-panel { flex-wrap: wrap; }
-
-        #spreadsheet-container { width: 100%; height: 100%; overflow: hidden; }
-        pre { background-color: #f4f4f4; padding: 1em; white-space: pre-wrap; word-wrap: break-word; font-size: 0.9em; overflow: auto; }
+        
+        #spreadsheet-container { width: 100%; height: 100%; }
+        pre { background-color: #f4f4f4; padding: 1em; white-space: pre-wrap; word-wrap: break-word; font-size: 0.9em; }
         button:disabled { cursor: not-allowed; background-color: #ccc; }
         .range-selector { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
         .range-selector label { flex-shrink: 0; width: 60px; }
         .range-selector input { flex-grow: 1; }
         #outputs { display: block; }
         #plot-image { width: 100%; height: auto; display: block; margin-bottom: 1em; }
-        #stats-output { display: block; }
 
         /* Styles for the draggable gutters */
         .gutter { background-color: #f1f1f1; background-repeat: no-repeat; background-position: 50%; }
-        .gutter.gutter-vertical { cursor: row-resize; background-image: url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAB4AAAAFAQMAAABo7865AAAABlBMVEVHcEzMzMzyAv2sAAAAAXRSTlMAQObYZgAAABBJREFUeF5jOAMEEAIEEFwAn3kMwcB6I2AAAAAASUVORK5CYII='); }
-        .gutter.gutter-horizontal { cursor: col-resize; background-image: url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAUAAAAeCAYAAADkftS9AAAAIklEQVQoU2M4c+bMfxgYGBgYGGgAjI2MGxBFmLvsADIAGQMAmXwZXV_cymcAAAAASUVORK5CYII='); }
+        .gutter.gutter-vertical { cursor: row-resize; }
+        .gutter.gutter-horizontal { cursor: col-resize; }
     </style>
 </head>
 <body>
