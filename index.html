@@ -20,21 +20,22 @@
         .top-toolbar ul ul { display: none; position: absolute; background-color: #fff; border: 1px solid #ddd; min-width: 180px; z-index: 1000; }
         .top-toolbar li:hover > ul { display: block; }
 
-        /* Changed from Grid to Flexbox for Split.js */
-        .app-container { display: flex; flex-direction: column; flex-grow: 1; gap: 1em; padding: 1em; box-sizing: border-box; overflow: hidden; }
-        #top-panels-container { display: flex; flex-direction: row; gap: 1em; height: 75%; }
+        /* Use Flexbox for the main layout to support Split.js */
+        .app-container { display: flex; flex-direction: column; flex-grow: 1; padding: 1em; gap: 1em; box-sizing: border-box; }
+        #top-area { display: flex; flex-direction: row; gap: 1em; }
         
-        .panel { background-color: #fff; border: 1px solid #ddd; border-radius: 8px; overflow: auto; padding: 1em; }
+        /* General panel styling */
+        .panel { display: flex; flex-direction: column; background-color: #fff; border: 1px solid #ddd; border-radius: 8px; overflow: auto; padding: 1em; }
         .spreadsheet-panel { padding: 0; }
-        .controls-panel { flex-direction: row; flex-wrap: wrap; align-items: flex-start; height: 25%; }
-        
+        .controls-panel { flex-wrap: wrap; }
+
         #spreadsheet-container { width: 100%; height: 100%; overflow: hidden; }
         pre { background-color: #f4f4f4; padding: 1em; white-space: pre-wrap; word-wrap: break-word; font-size: 0.9em; overflow: auto; }
         button:disabled { cursor: not-allowed; background-color: #ccc; }
         .range-selector { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
         .range-selector label { flex-shrink: 0; width: 60px; }
         .range-selector input { flex-grow: 1; }
-        #outputs { display: block; flex-direction: column; }
+        #outputs { display: block; }
         #plot-image { width: 100%; height: auto; display: block; margin-bottom: 1em; }
         #stats-output { display: block; }
 
@@ -42,7 +43,6 @@
         .gutter { background-color: #f1f1f1; background-repeat: no-repeat; background-position: 50%; }
         .gutter.gutter-vertical { cursor: row-resize; background-image: url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAB4AAAAFAQMAAABo7865AAAABlBMVEVHcEzMzMzyAv2sAAAAAXRSTlMAQObYZgAAABBJREFUeF5jOAMEEAIEEFwAn3kMwcB6I2AAAAAASUVORK5CYII='); }
         .gutter.gutter-horizontal { cursor: col-resize; background-image: url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAUAAAAeCAYAAADkftS9AAAAIklEQVQoU2M4c+bMfxgYGBgYGGgAjI2MGxBFmLvsADIAGQMAmXwZXV_cymcAAAAASUVORK5CYII='); }
-        .split { display: flex; flex-direction: row; }
     </style>
 </head>
 <body>
@@ -54,8 +54,8 @@
         </ul>
     </nav>
     <input type="file" id="csv-file-input" accept=".csv" style="display: none;">
-    <div class="app-container split">
-        <div id="top-panels-container" class="split">
+    <div class="app-container">
+        <div id="top-area">
             <div id="output-panel" class="panel output-panel">
                 <h2>Output Window</h2>
                 <div id="outputs">
