@@ -224,20 +224,19 @@ document.addEventListener('DOMContentLoaded', () => {
 
     main();
 
-    // --- Initialize Split.js for the new layout ---
+    // --- Initialize Split.js on the stable layout ---
     Split(['#top-area', '#controls-panel'], {
         direction: 'vertical',
-        sizes: [70, 30], // Initial proportions: 70% for top, 30% for bottom
+        sizes: [75, 25],
         minSize: [200, 150],
         gutterSize: 10,
     });
 
     Split(['#output-panel', '#spreadsheet-panel'], {
-        sizes: [50, 50], // Initial proportions: 50% / 50%
-        minSize: 300,
+        sizes: [50, 50],
+        minSize: 250,
         gutterSize: 10,
         onDrag: function() {
-            // Re-render Handsontable when dragging to prevent visual artifacts
             hot.render();
         }
     });
