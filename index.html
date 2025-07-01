@@ -24,14 +24,13 @@
         .spreadsheet-panel { grid-area: spreadsheet; padding: 0; }
         .controls-panel { grid-area: controls; flex-direction: row; flex-wrap: wrap; align-items: flex-start;}
         #spreadsheet-container { width: 100%; height: 100%; overflow: hidden; }
-        pre { background-color: #f4f4f4; padding: 1em; white-space: pre-wrap; word-wrap: break-word; font-size: 0.9em; overflow: auto; /* Allow scrolling for the table */}
+        pre { background-color: #f4f4f4; padding: 1em; white-space: pre-wrap; word-wrap: break-word; font-size: 0.9em; overflow: auto; }
         button:disabled { cursor: not-allowed; background-color: #ccc; }
         .range-selector { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
         .range-selector label { flex-shrink: 0; width: 60px; }
         .range-selector input { flex-grow: 1; }
         #outputs { display: none; flex-direction: column; }
-        #plot-canvas {
-            /* CHANGED max-width to width and added display: block */
+        #plot-image {
             width: 100%;
             height: auto;
             display: block;
@@ -53,7 +52,7 @@
         <div class="panel output-panel">
             <h2>Output Window</h2>
             <div id="outputs">
-                <canvas id="plot-canvas"></canvas>
+                <img id="plot-image" alt="Statistical plot">
                 <h4>Statistical Summary</h4>
                 <pre><code id="stats-output"></code></pre>
             </div>
