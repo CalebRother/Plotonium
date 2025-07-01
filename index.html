@@ -10,13 +10,37 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 
   <style>
-    body { font-family: sans-serif; margin: 0; padding: 0; background-color: #f8f9fa; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
-    .top-toolbar { background-color: #fff; border-bottom: 1px solid #ddd; padding: 0 1em; flex-shrink: 0; }
-    .top-toolbar ul { list-style: none; margin: 0; padding: 0; display: flex; }
-    .top-toolbar > ul > li { position: relative; }
-    .top-toolbar a { display: block; padding: 10px 15px; text-decoration: none; color: #333; }
+    body {
+      font-family: sans-serif;
+      margin: 0; padding: 0;
+      background-color: #f8f9fa;
+      display: flex; flex-direction: column;
+      height: 100vh; overflow: hidden;
+    }
+    .top-toolbar {
+      background-color: #fff;
+      border-bottom: 1px solid #ddd;
+      padding: 0 1em;
+      flex-shrink: 0;
+    }
+    .top-toolbar ul {
+      list-style: none; margin: 0; padding: 0;
+      display: flex;
+    }
+    .top-toolbar li { position: relative; }
+    .top-toolbar a {
+      display: block; padding: 10px 15px;
+      text-decoration: none; color: #333;
+    }
     .top-toolbar a:hover { background-color: #eee; }
-    .top-toolbar ul ul { display: none; position: absolute; background-color: #fff; border: 1px solid #ddd; min-width: 180px; z-index: 1000; }
+    .top-toolbar ul ul {
+      display: none;
+      position: absolute;
+      background-color: #fff;
+      border: 1px solid #ddd;
+      min-width: 180px;
+      z-index: 1000;
+    }
     .top-toolbar li:hover > ul { display: block; }
 
     .app-container {
@@ -26,61 +50,82 @@
       grid-template-areas:
         "output spreadsheet"
         "controls controls";
-      flex-grow: 1;
       gap: 1em;
       padding: 1em;
       box-sizing: border-box;
+      flex-grow: 1;
       overflow: hidden;
     }
 
     .panel {
-      display: flex;
-      flex-direction: column;
       background-color: #fff;
       border: 1px solid #ddd;
       border-radius: 8px;
-      overflow: auto;
       padding: 1em;
-    }
-    .output-panel      { grid-area: output; }
-    .spreadsheet-panel { grid-area: spreadsheet; padding: 0; }
-    .controls-panel    { grid-area: controls; flex-direction: row; flex-wrap: wrap; align-items: flex-start; }
-
-    #spreadsheet-container { width: 100%; height: 100%; overflow: hidden; }
-
-    pre {
-      background-color: #f4f4f4;
-      padding: 1em;
-      white-space: pre-wrap;
-      word-wrap: break-word;
-      font-size: 0.9em;
-      overflow: auto;
+      box-sizing: border-box;
     }
 
-    .range-selector {
+    /* ==== OUTPUT PANEL ==== */
+    .output-panel {
+      grid-area: output;
       display: flex;
-      align-items: center;
-      gap: 10px;
-      margin-bottom: 10px;
-    }
-    .range-selector label { flex-shrink: 0; width: 60px; }
-    .range-selector input { flex-grow: 1; }
-
-    #outputs {
-      display: none;
       flex-direction: column;
+      overflow: hidden;
     }
-
-    /* <<< UPDATED: force canvas to fill its panel width, scale height automatically >>> */
+    #outputs {
+      display: none;           /* shown by JS after run */
+      flex: 1;                 /* fill vertical space */
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
     #plot-canvas {
+      flex: 1;                 /* canvas grows/shrinks */
       width: 100%;
       height: auto;
-      margin-bottom: 1em;
+      border: 1px solid #ccc;
+      box-sizing: border-box;
+      margin-bottom: 0.5em;
+    }
+    #stats-output {
+      max-height: 30%;
+      overflow: auto;
+      background-color: #f4f4f4;
+      padding: 0.5em;
+      font-size: 0.9em;
+      margin: 0;
+      box-sizing: border-box;
     }
 
-    #stats-output { display: block; }
+    /* ==== SHEET PANEL ==== */
+    .spreadsheet-panel {
+      grid-area: spreadsheet;
+      padding: 0;
+      overflow: hidden;
+    }
+    #spreadsheet-container {
+      height: 100%; width: 100%;
+    }
 
-    button:disabled { cursor: not-allowed; background-color: #ccc; }
+    /* ==== CONTROLS PANEL ==== */
+    .controls-panel {
+      grid-area: controls;
+    }
+    .range-selector {
+      display: flex; align-items: center; gap: 10px;
+      margin-bottom: 10px;
+    }
+    .range-selector label {
+      flex-shrink: 0; width: 60px;
+    }
+    .range-selector input {
+      flex-grow: 1;
+    }
+
+    button:disabled {
+      cursor: not-allowed;
+      background-color: #ccc;
+    }
   </style>
 </head>
 <body>
@@ -110,51 +155,48 @@
   <input type="file" id="csv-file-input" accept=".csv" style="display: none;">
 
   <div class="app-container">
-    <!-- Output Panel -->
+    <!-- OUTPUT PANEL -->
     <div class="panel output-panel">
       <h2>Output Window</h2>
       <div id="outputs">
         <canvas id="plot-canvas"></canvas>
         <h4>Statistical Summary</h4>
-        <pre><code id="stats-output"></code></pre>
+        <pre id="stats-output"></pre>
       </div>
     </div>
 
-    <!-- Spreadsheet Panel -->
+    <!-- SPREADSHEET PANEL -->
     <div class="panel spreadsheet-panel">
       <div id="spreadsheet-container"></div>
     </div>
 
-    <!-- Controls Panel -->
+    <!-- CONTROLS PANEL -->
     <div class="panel controls-panel">
-      <div id="analysis-section">
-        <h3>Plotonium</h3>
-        <p>Highlight a range and click "Set", or type the range manually.</p>
-        <h4>Run Paired Comparison</h4>
+      <h3>Plotonium</h3>
+      <p>Highlight a range and click "Set", or type the range manually.</p>
+      <h4>Run Paired Comparison</h4>
 
-        <div class="range-selector">
-          <label for="before-range-input">Before:</label>
-          <input type="text" id="before-range-input" placeholder="e.g., A1:A50">
-          <button id="set-before-button">Set</button>
-        </div>
-
-        <div class="range-selector">
-          <label for="after-range-input">After:</label>
-          <input type="text" id="after-range-input" placeholder="e.g., B1:B50">
-          <button id="set-after-button">Set</button>
-        </div>
-
-        <!-- Parametric toggle -->
-        <div style="margin: 8px 0;">
-          <label style="display:flex; align-items:center; gap:0.5em;">
-            <input type="checkbox" id="parametric-checkbox" />
-            <span>Assume normal distribution (run parametric test)</span>
-          </label>
-        </div>
-
-        <button id="run-button" disabled>Run Test</button>
-        <div id="status-message" style="margin-top:1em; color:#555;"></div>
+      <div class="range-selector">
+        <label for="before-range-input">Before:</label>
+        <input type="text" id="before-range-input" placeholder="e.g., A1:A50">
+        <button id="set-before-button">Set</button>
       </div>
+
+      <div class="range-selector">
+        <label for="after-range-input">After:</label>
+        <input type="text" id="after-range-input" placeholder="e.g., B1:B50">
+        <button id="set-after-button">Set</button>
+      </div>
+
+      <div style="margin: 8px 0;">
+        <label style="display:flex; align-items:center; gap:0.5em;">
+          <input type="checkbox" id="parametric-checkbox">
+          <span>Assume normal distribution (run parametric test)</span>
+        </label>
+      </div>
+
+      <button id="run-button" disabled>Run Test</button>
+      <div id="status-message" style="margin-top:1em; color:#555;"></div>
     </div>
   </div>
 
