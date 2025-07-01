@@ -1,5 +1,5 @@
 import { WebR } from 'https://webr.r-wasm.org/latest/webr.mjs';
-import * as goldenLayout from 'golden-layout'; 
+import * as goldenLayout from 'golden-layout';
 
 document.addEventListener('DOMContentLoaded', async () => {
 
@@ -33,8 +33,6 @@ document.addEventListener('DOMContentLoaded', async () => {
             licenseKey: 'non-commercial-and-evaluation',
             contextMenu: true
         });
-
-        // FIX: Listen for resize events to make the spreadsheet redraw itself
         container.on('resize', () => {
             hot.render();
         });
@@ -56,7 +54,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             type: 'column',
             content: [{
                 type: 'row',
-                height: 65, // ADJUSTED: Gave less height to the top row
+                height: 65,
                 content: [{
                     type: 'component',
                     componentType: 'output',
@@ -70,7 +68,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 type: 'component',
                 componentType: 'controls',
                 title: 'Controls',
-                height: 35 // ADJUSTED: Gave more height to the controls panel
+                height: 35
             }]
         }
     };
@@ -137,8 +135,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         if (!beforeRange || !afterRange) {
             alert("Error: Invalid range format.");
-            runButton.disabled = false;
-            return;
+            runButton.disabled = false; return;
         }
 
         const beforeData = hot.getData(beforeRange.startRow, beforeRange.startCol, beforeRange.endRow, beforeRange.endCol).flat().filter(v => v !== null && v !== '');
@@ -146,8 +143,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         if (beforeData.length !== afterData.length || beforeData.length === 0) {
             alert("Error: 'Before' and 'After' ranges must contain the same number of non-empty cells.");
-            runButton.disabled = false;
-            return;
+            runButton.disabled = false; return;
         }
 
         statusMessage.innerText = "Running analysis...";
@@ -164,10 +160,27 @@ document.addEventListener('DOMContentLoaded', async () => {
 
             const plotResult = result.images[0];
             if(plotResult) {
+                // --- FINAL FIX: Resize the plot image before displaying it ---
+                const outputContent = plotImage.parentElement;
+                const style = window.getComputedStyle(outputContent);
+                const paddingX = parseFloat(style.paddingLeft) + parseFloat(style.paddingRight);
+                const availableWidth = outputContent.clientWidth - paddingX;
+                
+                let targetWidth = plotResult.width;
+                let targetHeight = plotResult.height;
+
+                if (plotResult.width > availableWidth) {
+                    const aspectRatio = plotResult.height / plotResult.width;
+                    targetWidth = availableWidth;
+                    targetHeight = availableWidth * aspectRatio;
+                }
+
                 const tempCanvas = document.createElement('canvas');
-                tempCanvas.width = plotResult.width;
-                tempCanvas.height = plotResult.height;
-                tempCanvas.getContext('2d').drawImage(plotResult, 0, 0);
+                tempCanvas.width = targetWidth;
+                tempCanvas.height = targetHeight;
+                const tempCtx = tempCanvas.getContext('2d');
+                tempCtx.drawImage(plotResult, 0, 0, targetWidth, targetHeight);
+                
                 plotImage.src = tempCanvas.toDataURL();
                 plotImage.style.display = 'block';
             }
