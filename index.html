@@ -30,7 +30,11 @@
         .range-selector label { flex-shrink: 0; width: 60px; }
         .range-selector input { flex-grow: 1; }
         #outputs { display: none; flex-direction: column; }
-        #plot-canvas { max-width: 100%; height: auto; /* Allow height to adjust based on width */ margin-bottom: 1em; }
+        #plot-canvas {
+            width: 100%; /* CHANGED FROM max-width */
+            height: auto; 
+            margin-bottom: 1em;
+        }
         #stats-output { display: block; }
     </style>
 </head>
