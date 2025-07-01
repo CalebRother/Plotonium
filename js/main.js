@@ -1,7 +1,7 @@
 import { WebR } from 'https://webr.r-wasm.org/latest/webr.mjs';
 
 document.addEventListener('DOMContentLoaded', () => {
-
+    
     const webR = new WebR();
 
     // Get references to all HTML elements
@@ -22,7 +22,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const addColMenu = document.getElementById('add-col-menu');
     const clearTableMenu = document.getElementById('clear-table-menu');
     const parametricCheckbox = document.getElementById('parametric-checkbox');
-    const outputPanel = document.querySelector('.output-panel');
 
     let lastSelection = null;
 
@@ -132,7 +131,7 @@ document.addEventListener('DOMContentLoaded', () => {
             fileInput.value = '';
         }
     });
-
+    
     runButton.addEventListener('click', async () => {
         const beforeRangeStr = beforeRangeInput.value.trim();
         const afterRangeStr = afterRangeInput.value.trim();
@@ -169,55 +168,41 @@ document.addEventListener('DOMContentLoaded', () => {
                  await shelter.purge();
                  return;
             }
-
+            
             const isParametric = parametricCheckbox.checked;
             statusMessage.innerText = "Running analysis...";
             const rCommand = `
                 before_vals <- c(${beforeData.join(',')})
                 after_vals <- c(${afterData.join(',')})
                 data <- data.frame(before_col = before_vals, after_col = after_vals)
-
+                
                 paired_comparison(
-                    data = data,
-                    before_col = before_col,
+                    data = data, 
+                    before_col = before_col, 
                     after_col = after_col,
                     parametric = ${isParametric ? 'TRUE' : 'FALSE'}
                 )
             `;
-
+            
             const result = await shelter.captureR(rCommand);
-
+            
             try {
                 const plots = result.images;
                 if (plots.length > 0) {
-                    const plot = plots[0];
+                    const plot = plots[0]; 
                     const ctx = plotCanvas.getContext('2d');
-
-                    // --- PLOT RESIZING LOGIC ---
-                    // 1. Get computed style to account for padding
-                    const style = window.getComputedStyle(outputPanel);
-                    const paddingLeft = parseFloat(style.paddingLeft);
-                    const paddingRight = parseFloat(style.paddingRight);
-
-                    // 2. Calculate available width inside the panel
-                    const availableWidth = outputPanel.clientWidth - paddingLeft - paddingRight;
-
-                    // 3. Determine new dimensions based on aspect ratio
-                    const aspectRatio = plot.height / plot.width;
-                    plotCanvas.width = availableWidth;
-                    plotCanvas.height = availableWidth * aspectRatio;
-
-                    // 4. Draw the image scaled to the new canvas size
-                    ctx.drawImage(plot, 0, 0, plotCanvas.width, plotCanvas.height);
+                    plotCanvas.width = plot.width;
+                    plotCanvas.height = plot.height;
+                    ctx.drawImage(plot, 0, 0);
                 }
 
                 const textOutput = result.output
                     .filter(msg => msg.type === 'stdout' || msg.type === 'stderr' || msg.type === 'message')
                     .map(msg => msg.data)
                     .join('\n');
-
+                
                 statsOutput.innerText = textOutput.trim();
-
+                
                 outputsDiv.style.display = 'block';
 
             } finally {
