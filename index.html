@@ -21,90 +21,72 @@
 
     <style>
         html, body { height: 100%; margin: 0; padding: 0; overflow: hidden; font-family: sans-serif; }
-        .top-toolbar { background-color: #fff; border-bottom: 1px solid #ddd; padding: 0 1em; }
-        .top-toolbar ul { list-style: none; margin: 0; padding: 0; display: flex; }
-        .top-toolbar a { display: block; padding: 10px 15px; text-decoration: none; color: #333; }
-        .top-toolbar a:hover { background-color: #eee; }
-        .top-toolbar ul ul { display: none; position: absolute; background-color: #fff; border: 1px solid #ddd; min-width: 180px; z-index: 1000; }
-        .top-toolbar li:hover > ul { display: block; }
+        .top-toolbar { /* ... */ }
         
         #layout-container { width: 100%; height: calc(100% - 41px); }
         .panel-content { padding: 1em; height: 100%; box-sizing: border-box; overflow: auto; }
         #spreadsheet-container { width: 100%; height: 100%; }
         
-        pre { background-color: #f4f4f4; padding: 1em; white-space: pre-wrap; word-wrap: break-word; font-size: 0.9em; }
-        button:disabled { cursor: not-allowed; background-color: #ccc; }
+        pre { /* ... */ }
+        button:disabled { cursor: not-allowed; }
         .range-selector { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
         .range-selector label { flex-shrink: 0; width: 80px; }
         .range-selector input { flex-grow: 1; }
-        #plot-image { max-width: 100%; height: auto; display: block; margin-bottom: 1em; }
+        #plot-image { max-width: 100%; }
 
-        /* Styles for tabbed interface */
-        .tab-bar { border-bottom: 1px solid #ddd; display: flex; margin-bottom: 1em; }
-        .tab-button { background: #eee; border: 1px solid #ddd; border-bottom: none; padding: 10px 15px; cursor: pointer; margin-right: 5px; border-radius: 5px 5px 0 0; }
-        .tab-button.active { background: #fff; border-bottom: 1px solid #fff; }
-        .tab-content { display: none; }
-        .tab-content.active { display: block; }
-
+        /* Styles for analysis selection */
+        .analysis-select-container { display: flex; gap: 10px; align-items: center; margin-bottom: 1em; }
+        .analysis-pane { display: none; }
+        .analysis-pane.active { display: block; }
     </style>
 </head>
 <body>
-    <nav class="top-toolbar">
-        </nav>
+    <nav class="top-toolbar"></nav>
     
     <div id="layout-container"></div>
 
-    <template id="output-panel-template">
-        </template>
-    <template id="spreadsheet-panel-template">
-        <div id="spreadsheet-container"></div>
-    </template>
+    <template id="output-panel-template"></template>
+    <template id="spreadsheet-panel-template"><div id="spreadsheet-container"></div></template>
 
     <template id="controls-panel-template">
         <div class="panel-content">
-            <div class="tab-bar">
-                <button class="tab-button active" data-tab="paired-comparison-tab">Paired Comparison</button>
-                <button class="tab-button" data-tab="group-comparison-tab">Group Comparison</button>
+            <div class="analysis-select-container">
+                <label for="analysis-type-select">Analysis Type:</label>
+                <select id="analysis-type-select">
+                    <option value="paired-comparison">Paired Comparison</option>
+                    <option value="group-comparison">Group Comparison</option>
+                </select>
             </div>
 
-            <div id="paired-comparison-tab" class="tab-content active">
+            <div id="paired-comparison" class="analysis-pane active">
                 <h4>Run Paired Comparison</h4>
                 <div class="range-selector">
                     <label for="pc-before-range">Before:</label>
-                    <input type="text" id="pc-before-range" placeholder="e.g., A1:A50">
-                    <button id="pc-set-before">Set</button>
+                    <input type="text" id="pc-before-range" placeholder="e.g., A1:A50"><button id="pc-set-before">Set</button>
                 </div>
                 <div class="range-selector">
                     <label for="pc-after-range">After:</label>
-                    <input type="text" id="pc-after-range" placeholder="e.g., B1:B50">
-                    <button id="pc-set-after">Set</button>
+                    <input type="text" id="pc-after-range" placeholder="e.g., B1:B50"><button id="pc-set-after">Set</button>
                 </div>
-                <div style="margin: 8px 0;">
-                    <label style="display:flex; align-items:center; gap:0.5em;"><input type="checkbox" id="pc-parametric" /><span>Assume normal distribution</span></label>
-                </div>
+                <div style="margin: 8px 0;"><label><input type="checkbox" id="pc-parametric" /> Assume normal distribution</label></div>
                 <button id="pc-run-button" disabled>Run Paired Test</button>
             </div>
 
-            <div id="group-comparison-tab" class="tab-content">
+            <div id="group-comparison" class="analysis-pane">
                 <h4>Run Group Comparison</h4>
                 <div class="range-selector">
                     <label for="gc-response-range">Response:</label>
-                    <input type="text" id="gc-response-range" placeholder="Values (e.g., A1:A100)">
-                    <button id="gc-set-response">Set</button>
+                    <input type="text" id="gc-response-range" placeholder="Values (e.g., A1:A100)"><button id="gc-set-response">Set</button>
                 </div>
                 <div class="range-selector">
                     <label for="gc-group1-range">Group 1:</label>
-                    <input type="text" id="gc-group1-range" placeholder="Primary groups (e.g., B1:B100)">
-                    <button id="gc-set-group1">Set</button>
+                    <input type="text" id="gc-group1-range" placeholder="Primary groups (e.g., B1:B100)"><button id="gc-set-group1">Set</button>
                 </div>
                 <div class="range-selector">
                     <label for="gc-group2-range">Group 2:</label>
-                    <input type="text" id="gc-group2-range" placeholder="Optional second group">
-                    <button id="gc-set-group2">Set</button>
+                    <input type="text" id="gc-group2-range" placeholder="Optional second group"><button id="gc-set-group2">Set</button>
                 </div>
-                 <div style="margin: 8px 0;">
-                    <label style="display:flex; align-items:center; gap:0.5em;"><input type="checkbox" id="gc-parametric" /><span>Assume normal distribution</span></label>
-                </div>
+                 <div style="margin: 8px 0;"><label><input type="checkbox" id="gc-parametric" /> Assume normal distribution</label></div>
                 <button id="gc-run-button" disabled>Run Group Test</button>
             </div>
             
