@@ -101,19 +101,39 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    // --- REVERTED: Event listeners for the "Set" buttons ---
     setBeforeButton.addEventListener('click', () => {
-        if (lastSelection) { beforeRangeInput.value = getA1Notation(lastSelection); } 
-        else { alert("Please select a range of cells in the spreadsheet first."); }
+        if (lastSelection) {
+            beforeRangeInput.value = getA1Notation(lastSelection);
+        } else {
+            alert("Please select a range of cells in the spreadsheet first.");
+        }
     });
 
     setAfterButton.addEventListener('click', () => {
-        if (lastSelection) { afterRangeInput.value = getA1Notation(lastSelection); } 
-        else { alert("Please select a range of cells in the spreadsheet first."); }
+        if (lastSelection) {
+            afterRangeInput.value = getA1Notation(lastSelection);
+        } else {
+            alert("Please select a range of cells in the spreadsheet first.");
+        }
     });
 
     importCsvMenu.addEventListener('click', (e) => { e.preventDefault(); fileInput.click(); });
-    // ... other menu listeners ...
+    addRowMenu.addEventListener('click', (e) => { e.preventDefault(); hot.alter('insert_row_below'); });
+    addColMenu.addEventListener('click', (e) => { e.preventDefault(); hot.alter('insert_col_end'); });
+    clearTableMenu.addEventListener('click', (e) => {
+        e.preventDefault();
+        hot.loadData(Handsontable.helper.createEmptySpreadsheetData(1000, 52));
+    });
+    exportCsvMenu.addEventListener('click', (e) => { /* ... existing export logic ... */ });
+    fileInput.addEventListener('change', (event) => {
+        if (event.target.files.length > 0) {
+            loadCsvData(event.target.files[0]);
+            fileInput.value = '';
+        }
+    });
     
+    // --- REVERTED: Run Button logic now uses the text input values ---
     runButton.addEventListener('click', async () => {
         const beforeRangeStr = beforeRangeInput.value.trim();
         const afterRangeStr = afterRangeInput.value.trim();
@@ -134,7 +154,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
             if (!beforeRange || !afterRange) {
                  alert("Error: Invalid range format. Please use standard spreadsheet notation (e.g., 'A1' or 'B2:B61').");
-                 runButton.disabled = false; statusMessage.innerText = "Ready."; await shelter.purge(); return;
+                 runButton.disabled = false;
+                 statusMessage.innerText = "Ready.";
+                 await shelter.purge();
+                 return;
             }
 
             const beforeData = hot.getData(beforeRange.startRow, beforeRange.startCol, beforeRange.endRow, beforeRange.endCol).flat().filter(v => v !== null && v !== '');
@@ -142,16 +165,19 @@ document.addEventListener('DOMContentLoaded', () => {
 
             if (beforeData.length !== afterData.length || beforeData.length === 0) {
                  alert("Error: 'Before' and 'After' ranges must contain the same number of non-empty cells.");
-                 runButton.disabled = false; statusMessage.innerText = "Ready."; await shelter.purge(); return;
+                 runButton.disabled = false;
+                 statusMessage.innerText = "Ready.";
+                 await shelter.purge();
+                 return;
             }
             
             const isParametric = parametricCheckbox.checked;
             statusMessage.innerText = "Running analysis...";
-
-            // --- THIS IS THE NEW, ROBUST APPROACH ---
-            // 1. Define a simple R command that uses variables that will be passed in.
             const rCommand = `
-                data <- data.frame(before_col = js_before_vals, after_col = js_after_vals)
+                before_vals <- c(${beforeData.join(',')})
+                after_vals <- c(${afterData.join(',')})
+                data <- data.frame(before_col = before_vals, after_col = after_vals)
+                
                 paired_comparison(
                     data = data, 
                     before_col = before_col, 
@@ -160,13 +186,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 )
             `;
             
-            // 2. Execute the command, passing the JS data arrays directly into the R environment.
-            const result = await shelter.captureR(rCommand, {
-                env: {
-                    js_before_vals: beforeData,
-                    js_after_vals: afterData
-                }
-            });
+            const result = await shelter.captureR(rCommand);
             
             try {
                 const plots = result.images;
@@ -184,9 +204,12 @@ document.addEventListener('DOMContentLoaded', () => {
                     .join('\n');
                 
                 statsOutput.innerText = textOutput.trim();
+                
                 outputsDiv.style.display = 'block';
 
-            } finally { /* No cleanup needed for result object */ }
+            } finally {
+                // No destroy method needed
+            }
 
         } catch(error) {
             console.error("Failed during analysis:", error);
