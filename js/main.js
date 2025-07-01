@@ -1,4 +1,5 @@
 import { WebR } from 'https://webr.r-wasm.org/latest/webr.mjs';
+import * as goldenLayout from 'golden-layout'; // Import Golden Layout as a module
 
 document.addEventListener('DOMContentLoaded', async () => {
 
@@ -8,14 +9,12 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // --- 1. Golden Layout Configuration ---
     const layoutContainer = document.getElementById('layout-container');
-    // CORRECTED: Use the correct variable name provided by the library
     const layout = new goldenLayout.GoldenLayout(layoutContainer);
 
     // -- Component Registration --
     layout.registerComponentFactoryFunction('output', (container) => {
         const template = document.getElementById('output-panel-template');
         container.element.innerHTML = template.innerHTML;
-        // Get references to elements now that they exist in the DOM
         plotImage = container.element.querySelector('#plot-image');
         statsOutput = container.element.querySelector('#stats-output');
     });
@@ -39,14 +38,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     layout.registerComponentFactoryFunction('controls', (container) => {
         const template = document.getElementById('controls-panel-template');
         container.element.innerHTML = template.innerHTML;
-        // Get references to control panel elements
         statusMessage = container.element.querySelector('#status-message');
         runButton = container.element.querySelector('#run-button');
         
-        // Encapsulate all event listener logic here
         initializeEventListeners(container.element);
-        
-        // Initialize WebR after controls are ready
         main(); 
     });
 
@@ -81,7 +76,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     function initializeEventListeners(controlsContainer) {
         let lastSelection = null;
         
-        // Update hot instance to capture selections
         hot.updateSettings({
             afterSelectionEnd: (r, c, r2, c2) => {
                 lastSelection = { startRow: Math.min(r, r2), endRow: Math.max(r, r2), startCol: Math.min(c, c2), endCol: Math.max(c, c2) };
@@ -91,14 +85,12 @@ document.addEventListener('DOMContentLoaded', async () => {
         const getA1Notation = (selection) => `${hot.getColHeader(selection.startCol)}${selection.startRow + 1}:${hot.getColHeader(selection.endCol)}${selection.endRow + 1}`;
         const loadCsvData = (file) => Papa.parse(file, { header: false, skipEmptyLines: true, complete: (results) => { if (results.data.length > 0) hot.loadData(results.data); } });
         
-        // Toolbar menus
         document.getElementById('import-csv-menu').addEventListener('click', (e) => { e.preventDefault(); document.getElementById('csv-file-input').click(); });
         document.getElementById('add-row-menu').addEventListener('click', (e) => { e.preventDefault(); hot.alter('insert_row_below'); });
         document.getElementById('add-col-menu').addEventListener('click', (e) => { e.preventDefault(); hot.alter('insert_col_end'); });
         document.getElementById('clear-table-menu').addEventListener('click', (e) => { e.preventDefault(); hot.clear(); hot.updateSettings({ startRows: 1000, startCols: 52 }); });
         document.getElementById('csv-file-input').addEventListener('change', (event) => { if (event.target.files.length > 0) loadCsvData(event.target.files[0]); event.target.value = ''; });
 
-        // Controls panel listeners
         controlsContainer.querySelector('#set-before-button').addEventListener('click', () => { if(lastSelection) controlsContainer.querySelector('#before-range-input').value = getA1Notation(lastSelection); });
         controlsContainer.querySelector('#set-after-button').addEventListener('click', () => { if(lastSelection) controlsContainer.querySelector('#after-range-input').value = getA1Notation(lastSelection); });
         runButton.addEventListener('click', () => runAnalysis(controlsContainer));
