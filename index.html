@@ -27,7 +27,8 @@
         #top-area { display: flex; flex-direction: row; gap: 1em; flex-grow: 1; min-height: 0; }
         
         /* Set initial sizes and prevent panels from collapsing */
-        #output-panel, #spreadsheet-panel { flex: 1 1 50%; min-width: 0; }
+        /* Changed flex-grow from 1 to 0 to allow the splitter to work */
+        #output-panel, #spreadsheet-panel { flex: 0 0 50%; min-width: 0; }
         #controls-panel { flex-shrink: 0; height: 200px; }
 
         .panel { display: flex; flex-direction: column; background-color: #fff; border: 1px solid #ddd; border-radius: 8px; overflow: auto; padding: 1em; }
