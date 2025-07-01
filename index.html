@@ -8,98 +8,86 @@
     <script src="https://cdn.jsdelivr.net/npm/handsontable/dist/handsontable.full.min.js"></script>
     <link href="https://cdn.jsdelivr.net/npm/handsontable/dist/handsontable.full.min.css" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
-    <script src="https://unpkg.com/split.js/dist/split.min.js"></script>
+    
+    <script src="https://unpkg.com/golden-layout@2.6.0/dist/bundle/golden-layout.min.js"></script>
+    <link href="https://unpkg.com/golden-layout@2.6.0/dist/css/goldenlayout-base.css" rel="stylesheet">
+    <link href="https://unpkg.com/golden-layout@2.6.0/dist/css/themes/goldenlayout-light-theme.css" rel="stylesheet">
 
     <style>
-        html, body { height: 100%; margin: 0; padding: 0; overflow: hidden; }
-        body { font-family: sans-serif; background-color: #f8f9fa; display: flex; flex-direction: column; }
-        
-        .top-toolbar { background-color: #fff; border-bottom: 1px solid #ddd; padding: 0 1em; flex-shrink: 0; }
+        html, body { height: 100%; margin: 0; padding: 0; overflow: hidden; font-family: sans-serif; }
+        .top-toolbar { background-color: #fff; border-bottom: 1px solid #ddd; padding: 0 1em; }
         .top-toolbar ul { list-style: none; margin: 0; padding: 0; display: flex; }
-        .top-toolbar > ul > li { position: relative; }
         .top-toolbar a { display: block; padding: 10px 15px; text-decoration: none; color: #333; }
         .top-toolbar a:hover { background-color: #eee; }
         .top-toolbar ul ul { display: none; position: absolute; background-color: #fff; border: 1px solid #ddd; min-width: 180px; z-index: 1000; }
         .top-toolbar li:hover > ul { display: block; }
-
-        /* Stable Flexbox Layout */
-        .app-container { display: flex; flex-direction: column; flex-grow: 1; padding: 1em; gap: 1em; box-sizing: border-box; min-height: 0; }
-        #top-area { display: flex; flex-direction: row; gap: 1em; flex-grow: 1; min-height: 0; }
         
-        /* Set initial sizes and prevent panels from collapsing */
-        /* Changed flex-grow from 1 to 0 to allow the splitter to work */
-        #output-panel, #spreadsheet-panel { flex: 0 0 50%; min-width: 0; }
-        #controls-panel { flex-shrink: 0; height: 200px; }
-
-        .panel { display: flex; flex-direction: column; background-color: #fff; border: 1px solid #ddd; border-radius: 8px; overflow: auto; padding: 1em; }
-        .spreadsheet-panel { padding: 0; }
-        
+        #layout-container { width: 100%; height: calc(100% - 41px); }
+        .panel-content { padding: 1em; height: 100%; box-sizing: border-box; overflow: auto; }
+        .spreadsheet-content { padding: 0; }
         #spreadsheet-container { width: 100%; height: 100%; }
+        
+        /* Styles for controls inside panels */
         pre { background-color: #f4f4f4; padding: 1em; white-space: pre-wrap; word-wrap: break-word; font-size: 0.9em; }
         button:disabled { cursor: not-allowed; background-color: #ccc; }
         .range-selector { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
         .range-selector label { flex-shrink: 0; width: 60px; }
         .range-selector input { flex-grow: 1; }
-        #outputs { display: block; }
         #plot-image { width: 100%; height: auto; display: block; margin-bottom: 1em; }
-
-        /* Styles for the draggable gutters */
-        .gutter { background-color: #f1f1f1; background-repeat: no-repeat; background-position: 50%; }
-        .gutter.gutter-vertical { cursor: row-resize; }
-        .gutter.gutter-horizontal { cursor: col-resize; }
     </style>
 </head>
 <body>
     <nav class="top-toolbar">
         <ul>
-            <li><a href="#">File</a><ul><li><a href="#" id="import-csv-menu">Import CSV</a></li><li><a href="#" id="export-csv-menu">Export CSV</a></li></ul></li>
-            <li><a href="#">Sheet</a><ul><li><a href="#" id="add-row-menu">Add Row</a></li><li><a href="#" id="add-col-menu">Add Column</a></li><li><a href="#" id="clear-table-menu">Clear Table</a></li></ul></li>
+            <li><a href="#">File</a><ul class="file-menu"><li><a href="#" id="import-csv-menu">Import CSV</a></li><li><a href="#" id="export-csv-menu">Export CSV</a></li></ul></li>
+            <li><a href="#">Sheet</a><ul class="sheet-menu"><li><a href="#" id="add-row-menu">Add Row</a></li><li><a href="#" id="add-col-menu">Add Column</a></li><li><a href="#" id="clear-table-menu">Clear Table</a></li></ul></li>
             <li><a href="#">Analysis</a><ul><li><a href="#">Paired Comparison (Active)</a></li></ul></li>
         </ul>
     </nav>
+    
+    <div id="layout-container"></div>
+
+    <template id="output-panel-template">
+        <div class="panel-content">
+            <img id="plot-image" alt="Statistical plot" style="display: none;">
+            <h4>Statistical Summary</h4>
+            <pre><code id="stats-output"></code></pre>
+        </div>
+    </template>
+
+    <template id="spreadsheet-panel-template">
+        <div id="spreadsheet-container"></div>
+    </template>
+
+    <template id="controls-panel-template">
+        <div class="panel-content">
+            <h3>Plotonium</h3>
+            <p>Highlight a range and click "Set", or type the range manually.</p>
+            <h4>Run Paired Comparison</h4>
+            <div class="range-selector">
+                <label for="before-range-input">Before:</label>
+                <input type="text" id="before-range-input" placeholder="e.g., A1:A50">
+                <button id="set-before-button">Set</button>
+            </div>
+            <div class="range-selector">
+                <label for="after-range-input">After:</label>
+                <input type="text" id="after-range-input" placeholder="e.g., B1:B50">
+                <button id="set-after-button">Set</button>
+            </div>
+            <div style="margin: 8px 0;">
+                <label style="display:flex; align-items:center; gap:0.5em;">
+                    <input type="checkbox" id="parametric-checkbox" />
+                    <span>Assume normal distribution (run parametric test)</span>
+                </label>
+            </div>
+            <div class="controls" style="margin-top:10px;">
+                <button id="run-button" disabled>Run Test</button>
+            </div>
+            <div id="status-message" style="margin-top: 1em;"></div>
+        </div>
+    </template>
+
     <input type="file" id="csv-file-input" accept=".csv" style="display: none;">
-    <div class="app-container">
-        <div id="top-area">
-            <div id="output-panel" class="panel output-panel">
-                <h2>Output Window</h2>
-                <div id="outputs">
-                    <img id="plot-image" alt="Statistical plot" style="display: none;">
-                    <h4>Statistical Summary</h4>
-                    <pre><code id="stats-output"></code></pre>
-                </div>
-            </div>
-            <div id="spreadsheet-panel" class="panel spreadsheet-panel">
-                <div id="spreadsheet-container"></div>
-            </div>
-        </div>
-        <div id="controls-panel" class="panel controls-panel">
-            <div id="analysis-section">
-                <h3>Plotonium</h3>
-                <p>Highlight a range and click "Set", or type the range manually.</p>
-                <h4>Run Paired Comparison</h4>
-                <div class="range-selector">
-                    <label for="before-range-input">Before:</label>
-                    <input type="text" id="before-range-input" placeholder="e.g., A1:A50">
-                    <button id="set-before-button">Set</button>
-                </div>
-                <div class="range-selector">
-                    <label for="after-range-input">After:</label>
-                    <input type="text" id="after-range-input" placeholder="e.g., B1:B50">
-                    <button id="set-after-button">Set</button>
-                </div>
-                <div style="margin: 8px 0;">
-                    <label style="display:flex; align-items:center; gap:0.5em;">
-                        <input type="checkbox" id="parametric-checkbox" />
-                        <span>Assume normal distribution (run parametric test)</span>
-                    </label>
-                </div>
-                <div class="controls" style="margin-top:10px;">
-                    <button id="run-button" disabled>Run Test</button>
-                </div>
-            </div>
-            <div id="status-message" style="margin-left: 2em; margin-top: 1em;"></div>
-        </div>
-    </div>
     <script src="js/main.js" type="module"></script>
 </body>
 </html>
