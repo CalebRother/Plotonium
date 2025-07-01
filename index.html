@@ -1,130 +1,138 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1.0"/>
   <title>Plotonium - WebR Statistics Analyzer</title>
 
   <script src="https://cdn.jsdelivr.net/npm/handsontable/dist/handsontable.full.min.js"></script>
-  <link href="https://cdn.jsdelivr.net/npm/handsontable/dist/handsontable.full.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/handsontable/dist/handsontable.full.min.css" rel="stylesheet"/>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 
   <style>
+    /* ──────────────── Reset & Layout ──────────────── */
     body {
+      margin: 0;
+      padding: 0;
       font-family: sans-serif;
-      margin: 0; padding: 0;
-      background-color: #f8f9fa;
-      display: flex; flex-direction: column;
-      height: 100vh; overflow: hidden;
+      background: #f5f5f5;
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      overflow: hidden;
     }
     .top-toolbar {
-      background-color: #fff;
+      background: #fff;
       border-bottom: 1px solid #ddd;
-      padding: 0 1em;
       flex-shrink: 0;
     }
     .top-toolbar ul {
-      list-style: none; margin: 0; padding: 0;
+      list-style: none;
+      margin: 0;
+      padding: 0;
       display: flex;
     }
-    .top-toolbar li { position: relative; }
-    .top-toolbar a {
-      display: block; padding: 10px 15px;
-      text-decoration: none; color: #333;
+    .top-toolbar li {
+      position: relative;
     }
-    .top-toolbar a:hover { background-color: #eee; }
+    .top-toolbar a {
+      display: block;
+      padding: 10px 15px;
+      text-decoration: none;
+      color: #333;
+    }
+    .top-toolbar a:hover {
+      background: #eee;
+    }
     .top-toolbar ul ul {
       display: none;
       position: absolute;
-      background-color: #fff;
+      background: #fff;
       border: 1px solid #ddd;
       min-width: 180px;
       z-index: 1000;
     }
-    .top-toolbar li:hover > ul { display: block; }
+    .top-toolbar li:hover > ul {
+      display: block;
+    }
 
+    /* ──────────────── Main Grid ──────────────── */
     .app-container {
+      flex: 1;   /* fill remaining height below toolbar */
       display: grid;
-      grid-template-columns: 1fr 1fr;
+      grid-template-columns: 2fr 3fr;
+      /* ← First row (output & sheet) takes all free space; second row (controls) just auto-sizes ↓ */
       grid-template-rows: 1fr auto;
       grid-template-areas:
         "output spreadsheet"
-        "controls controls";
+        "controls spreadsheet";
       gap: 1em;
       padding: 1em;
       box-sizing: border-box;
-      flex-grow: 1;
       overflow: hidden;
     }
 
     .panel {
-      background-color: #fff;
+      background: #fff;
       border: 1px solid #ddd;
       border-radius: 8px;
       padding: 1em;
       box-sizing: border-box;
-    }
-
-    /* ==== OUTPUT PANEL ==== */
-    .output-panel {
-      grid-area: output;
+      overflow: hidden;
       display: flex;
       flex-direction: column;
-      overflow: hidden;
     }
+    .output-panel      { grid-area: output; }
+    .spreadsheet-panel { grid-area: spreadsheet; padding: 0; }
+    .controls-panel    { grid-area: controls; }
+
+    /* ──────────────── Spreadsheet ──────────────── */
+    #spreadsheet-container {
+      width: 100%;
+      height: 100%;
+    }
+
+    /* ──────────────── Output ──────────────── */
     #outputs {
-      display: none;           /* shown by JS after run */
-      flex: 1;                 /* fill vertical space */
+      display: none;   /* shown after you run */
+      flex: 1;         /* take full height of panel */
       display: flex;
       flex-direction: column;
       overflow: hidden;
     }
     #plot-canvas {
-      flex: 1;                 /* canvas grows/shrinks */
-      width: 100%;
+      /* scale the canvas down to fit */
+      max-width: 100%;
       height: auto;
-      border: 1px solid #ccc;
-      box-sizing: border-box;
       margin-bottom: 0.5em;
+      display: block;
     }
     #stats-output {
-      max-height: 30%;
-      overflow: auto;
-      background-color: #f4f4f4;
+      background: #f4f4f4;
       padding: 0.5em;
-      font-size: 0.9em;
       margin: 0;
-      box-sizing: border-box;
+      font-size: 0.9em;
+      overflow: auto;
+      flex-shrink: 0;
     }
 
-    /* ==== SHEET PANEL ==== */
-    .spreadsheet-panel {
-      grid-area: spreadsheet;
-      padding: 0;
-      overflow: hidden;
-    }
-    #spreadsheet-container {
-      height: 100%; width: 100%;
-    }
-
-    /* ==== CONTROLS PANEL ==== */
-    .controls-panel {
-      grid-area: controls;
-    }
+    /* ──────────────── Controls ──────────────── */
     .range-selector {
-      display: flex; align-items: center; gap: 10px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
       margin-bottom: 10px;
     }
     .range-selector label {
-      flex-shrink: 0; width: 60px;
+      flex-shrink: 0;
+      width: 60px;
     }
     .range-selector input {
       flex-grow: 1;
     }
-
     button:disabled {
+      background: #ccc;
       cursor: not-allowed;
-      background-color: #ccc;
     }
   </style>
 </head>
@@ -152,10 +160,10 @@
     </ul>
   </nav>
 
-  <input type="file" id="csv-file-input" accept=".csv" style="display: none;">
+  <input type="file" id="csv-file-input" accept=".csv" style="display:none;">
 
   <div class="app-container">
-    <!-- OUTPUT PANEL -->
+    <!-- Output Panel -->
     <div class="panel output-panel">
       <h2>Output Window</h2>
       <div id="outputs">
@@ -165,32 +173,32 @@
       </div>
     </div>
 
-    <!-- SPREADSHEET PANEL -->
+    <!-- Spreadsheet Panel -->
     <div class="panel spreadsheet-panel">
       <div id="spreadsheet-container"></div>
     </div>
 
-    <!-- CONTROLS PANEL -->
+    <!-- Controls Panel -->
     <div class="panel controls-panel">
       <h3>Plotonium</h3>
-      <p>Highlight a range and click "Set", or type the range manually.</p>
+      <p>Highlight a range and click “Set”, or type the range manually.</p>
       <h4>Run Paired Comparison</h4>
 
       <div class="range-selector">
         <label for="before-range-input">Before:</label>
-        <input type="text" id="before-range-input" placeholder="e.g., A1:A50">
+        <input type="text" id="before-range-input" placeholder="e.g. A1:A50">
         <button id="set-before-button">Set</button>
       </div>
 
       <div class="range-selector">
         <label for="after-range-input">After:</label>
-        <input type="text" id="after-range-input" placeholder="e.g., B1:B50">
+        <input type="text" id="after-range-input" placeholder="e.g. B1:B50">
         <button id="set-after-button">Set</button>
       </div>
 
-      <div style="margin: 8px 0;">
+      <div style="margin:8px 0;">
         <label style="display:flex; align-items:center; gap:0.5em;">
-          <input type="checkbox" id="parametric-checkbox">
+          <input type="checkbox" id="parametric-checkbox"/>
           <span>Assume normal distribution (run parametric test)</span>
         </label>
       </div>
