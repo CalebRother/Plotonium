@@ -1,3 +1,31 @@
+# r/paired_comparison.R
+
+# Load all necessary libraries for the function to work
+library(dplyr)
+library(rlang)
+library(tidyr)
+library(ggplot2)
+library(rstatix)
+library(scales)
+library(ggpubr)
+
+paired_comparison <- function(data,
+                              before_col,
+                              after_col,
+                              parametric       = FALSE,
+                              plot_title       = NULL,
+                              xlab             = NULL,
+                              ylab             = "Value",
+                              before_label     = NULL,
+                              after_label      = NULL,
+                              show_paired_lines= TRUE,
+                              before_color     = NULL,
+                              after_color      = NULL) {
+  # capture the column names
+  before_q <- enquo(before_col)
+  after_q  <- enquo(after_col)
+  before_str <- as_name(before_q)
+  after_str  <- as_name(after_q)
 
   # pivot to long form
   data_long <- data %>%
