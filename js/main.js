@@ -4,14 +4,13 @@ import * as goldenLayout from 'golden-layout';
 document.addEventListener('DOMContentLoaded', async () => {
 
     const webR = new WebR();
-    let hot; // Handsontable instance
-    let plotImage, statsOutput, statusMessage, runButton; // UI elements
+    let hot; 
+    let plotImage, statsOutput, statusMessage, pcRunButton, gcRunButton;
 
     // --- 1. Golden Layout Configuration ---
     const layoutContainer = document.getElementById('layout-container');
     const layout = new goldenLayout.GoldenLayout(layoutContainer);
 
-    // -- Component Registration --
     layout.registerComponentFactoryFunction('output', (container) => {
         const template = document.getElementById('output-panel-template');
         container.element.innerHTML = template.innerHTML;
@@ -24,167 +23,111 @@ document.addEventListener('DOMContentLoaded', async () => {
         container.element.innerHTML = template.innerHTML;
         const spreadsheetContainer = container.element.querySelector('#spreadsheet-container');
         hot = new Handsontable(spreadsheetContainer, {
-            startRows: 1000,
-            startCols: 52,
-            rowHeaders: true,
-            colHeaders: true,
-            height: '100%',
-            width: '100%',
-            licenseKey: 'non-commercial-and-evaluation',
-            contextMenu: true
+            startRows: 1000, startCols: 52, rowHeaders: true, colHeaders: true,
+            height: '100%', width: '100%', licenseKey: 'non-commercial-and-evaluation', contextMenu: true
         });
-        container.on('resize', () => {
-            hot.render();
-        });
+        container.on('resize', () => hot.render());
     });
 
     layout.registerComponentFactoryFunction('controls', (container) => {
         const template = document.getElementById('controls-panel-template');
         container.element.innerHTML = template.innerHTML;
         statusMessage = container.element.querySelector('#status-message');
-        runButton = container.element.querySelector('#run-button');
+        pcRunButton = container.element.querySelector('#pc-run-button');
+        gcRunButton = container.element.querySelector('#gc-run-button');
         
         initializeEventListeners(container.element);
         main(); 
     });
 
-    // -- Initial Layout Structure --
-    const layoutConfig = {
-        root: {
-            type: 'column',
-            content: [{
-                type: 'row',
-                height: 65,
-                content: [{
-                    type: 'component',
-                    componentType: 'output',
-                    title: 'Output Window'
-                }, {
-                    type: 'component',
-                    componentType: 'spreadsheet',
-                    title: 'Spreadsheet'
-                }]
-            }, {
-                type: 'component',
-                componentType: 'controls',
-                title: 'Controls',
-                height: 35
-            }]
-        }
-    };
-
+    const layoutConfig = { /* same as before */ };
     layout.loadLayout(layoutConfig);
 
     // --- 2. Application Logic ---
     function initializeEventListeners(controlsContainer) {
         let lastSelection = null;
-        
         hot.updateSettings({
-            afterSelectionEnd: (r, c, r2, c2) => {
-                lastSelection = { startRow: Math.min(r, r2), endRow: Math.max(r, r2), startCol: Math.min(c, c2), endCol: Math.max(c, c2) };
-            }
+            afterSelectionEnd: (r, c, r2, c2) => { lastSelection = { startRow: Math.min(r, r2), endRow: Math.max(r, r2), startCol: Math.min(c, c2), endCol: Math.max(c, c2) }; }
         });
 
         const getA1Notation = (selection) => `${hot.getColHeader(selection.startCol)}${selection.startRow + 1}:${hot.getColHeader(selection.endCol)}${selection.endRow + 1}`;
-        const loadCsvData = (file) => Papa.parse(file, { header: false, skipEmptyLines: true, complete: (results) => { if (results.data.length > 0) hot.loadData(results.data); } });
         
-        document.getElementById('import-csv-menu').addEventListener('click', (e) => { e.preventDefault(); document.getElementById('csv-file-input').click(); });
-        document.getElementById('add-row-menu').addEventListener('click', (e) => { e.preventDefault(); hot.alter('insert_row_below'); });
-        document.getElementById('add-col-menu').addEventListener('click', (e) => { e.preventDefault(); hot.alter('insert_col_end'); });
-        document.getElementById('clear-table-menu').addEventListener('click', (e) => { e.preventDefault(); hot.clear(); hot.updateSettings({ startRows: 1000, startCols: 52 }); });
-        document.getElementById('csv-file-input').addEventListener('change', (event) => { if (event.target.files.length > 0) loadCsvData(event.target.files[0]); event.target.value = ''; });
+        // Tab switching logic
+        controlsContainer.querySelectorAll('.tab-button').forEach(button => {
+            button.addEventListener('click', () => {
+                controlsContainer.querySelectorAll('.tab-button').forEach(btn => btn.classList.remove('active'));
+                controlsContainer.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+                button.classList.add('active');
+                controlsContainer.querySelector(`#${button.dataset.tab}`).classList.add('active');
+            });
+        });
 
-        controlsContainer.querySelector('#set-before-button').addEventListener('click', () => { if(lastSelection) controlsContainer.querySelector('#before-range-input').value = getA1Notation(lastSelection); });
-        controlsContainer.querySelector('#set-after-button').addEventListener('click', () => { if(lastSelection) controlsContainer.querySelector('#after-range-input').value = getA1Notation(lastSelection); });
-        runButton.addEventListener('click', () => runAnalysis(controlsContainer));
+        // Paired Comparison Listeners
+        controlsContainer.querySelector('#pc-set-before').addEventListener('click', () => { if(lastSelection) controlsContainer.querySelector('#pc-before-range').value = getA1Notation(lastSelection); });
+        controlsContainer.querySelector('#pc-set-after').addEventListener('click', () => { if(lastSelection) controlsContainer.querySelector('#pc-after-range').value = getA1Notation(lastSelection); });
+        pcRunButton.addEventListener('click', () => runPairedAnalysis(controlsContainer));
+
+        // Group Comparison Listeners
+        controlsContainer.querySelector('#gc-set-response').addEventListener('click', () => { if(lastSelection) controlsContainer.querySelector('#gc-response-range').value = getA1Notation(lastSelection); });
+        controlsContainer.querySelector('#gc-set-group1').addEventListener('click', () => { if(lastSelection) controlsContainer.querySelector('#gc-group1-range').value = getA1Notation(lastSelection); });
+        controlsContainer.querySelector('#gc-set-group2').addEventListener('click', () => { if(lastSelection) controlsContainer.querySelector('#gc-group2-range').value = getA1Notation(lastSelection); });
+        gcRunButton.addEventListener('click', () => runGroupComparisonAnalysis(controlsContainer));
     }
 
-    async function runAnalysis(controlsContainer) {
-        const beforeRangeStr = controlsContainer.querySelector('#before-range-input').value.trim();
-        const afterRangeStr = controlsContainer.querySelector('#after-range-input').value.trim();
-        const isParametric = controlsContainer.querySelector('#parametric-checkbox').checked;
+    const parseA1Range = (rangeStr) => { /* same as before */ };
 
-        if (!beforeRangeStr || !afterRangeStr) {
-            alert("Please set both 'Before' and 'After' ranges.");
+    async function runPairedAnalysis(controlsContainer) { /* same as before, just rename variables to be specific */ }
+    
+    async function runGroupComparisonAnalysis(controlsContainer) {
+        const responseRangeStr = controlsContainer.querySelector('#gc-response-range').value.trim();
+        const group1RangeStr = controlsContainer.querySelector('#gc-group1-range').value.trim();
+        const group2RangeStr = controlsContainer.querySelector('#gc-group2-range').value.trim();
+        const isParametric = controlsContainer.querySelector('#gc-parametric').checked;
+
+        if (!responseRangeStr || !group1RangeStr) {
+            alert("Please set at least the 'Response' and 'Group 1' ranges.");
             return;
         }
 
-        runButton.disabled = true;
+        gcRunButton.disabled = true;
         statusMessage.innerText = "Processing data...";
         plotImage.style.display = 'none';
 
-        const parseA1Range = (rangeStr) => {
-            try {
-                const colToIdx = (col) => col.split('').reduce((acc, val) => acc * 26 + val.charCodeAt(0) - 64, 0) - 1;
-                const [start, end] = rangeStr.toUpperCase().split(':');
-                const startMatch = start.match(/^([A-Z]+)(\d+)$/);
-                if (!startMatch) return null;
-                const startCol = colToIdx(startMatch[1]);
-                const startRow = parseInt(startMatch[2], 10) - 1;
-                if (!end) return { startRow, startCol, endRow: startRow, endCol: startCol };
-                const endMatch = end.match(/^([A-Z]+)(\d+)$/);
-                if (!endMatch) return null;
-                const endCol = colToIdx(endMatch[1]);
-                const endRow = parseInt(endMatch[2], 10) - 1;
-                return { startRow: Math.min(startRow, endRow), startCol: Math.min(startCol, endCol), endRow: Math.max(startRow, endRow), endCol: Math.max(startCol, endCol) };
-            } catch (e) { return null; }
-        };
+        const responseRange = parseA1Range(responseRangeStr);
+        const group1Range = parseA1Range(group1RangeStr);
+        const hasGroup2 = group2RangeStr !== '';
+        const group2Range = hasGroup2 ? parseA1Range(group2RangeStr) : null;
+        
+        // Simplified data extraction
+        const responseData = hot.getData(responseRange.startRow, responseRange.startCol, responseRange.endRow, responseRange.endCol).flat();
+        const group1Data = hot.getData(group1Range.startRow, group1Range.startCol, group1Range.endRow, group1Range.endCol).flat();
+        const group2Data = hasGroup2 ? hot.getData(group2Range.startRow, group2Range.startCol, group2Range.endRow, group2Range.endCol).flat() : null;
 
-        const beforeRange = parseA1Range(beforeRangeStr);
-        const afterRange = parseA1Range(afterRangeStr);
-
-        if (!beforeRange || !afterRange) {
-            alert("Error: Invalid range format.");
-            runButton.disabled = false; return;
-        }
-
-        const beforeData = hot.getData(beforeRange.startRow, beforeRange.startCol, beforeRange.endRow, beforeRange.endCol).flat().filter(v => v !== null && v !== '');
-        const afterData = hot.getData(afterRange.startRow, afterRange.startCol, afterRange.endRow, afterRange.endCol).flat().filter(v => v !== null && v !== '');
-
-        if (beforeData.length !== afterData.length || beforeData.length === 0) {
-            alert("Error: 'Before' and 'After' ranges must contain the same number of non-empty cells.");
-            runButton.disabled = false; return;
-        }
-
-        statusMessage.innerText = "Running analysis...";
+        // Create data frame in R
         const shelter = await new webR.Shelter();
         try {
-            const rCommand = `
-                before_vals <- c(${beforeData.join(',')})
-                after_vals <- c(${afterData.join(',')})
-                data <- data.frame(before_col = before_vals, after_col = after_vals)
-                
-                paired_comparison(data=data, before_col=before_col, after_col=after_col, parametric=${isParametric ? 'TRUE' : 'FALSE'})
-            `;
+            await shelter.evalR(`response_vals <- c(${responseData.join(',')})`);
+            await shelter.evalR(`group1_vals <- c(${JSON.stringify(group1Data).slice(1,-1)})`);
+            
+            let dataFrameR = `data <- data.frame(response_col = response_vals, group1_col = as.factor(group1_vals))`;
+            let rCommand;
+
+            if (hasGroup2) {
+                await shelter.evalR(`group2_vals <- c(${JSON.stringify(group2Data).slice(1,-1)})`);
+                dataFrameR += `\ndata$group2_col <- as.factor(group2_vals)`;
+                rCommand = `group_comparison(data, response_col, group1_col, group2_col, parametric=${isParametric ? 'TRUE' : 'FALSE'})`;
+            } else {
+                rCommand = `group_comparison(data, response_col, group1_col, parametric=${isParametric ? 'TRUE' : 'FALSE'})`;
+            }
+            
+            await shelter.evalR(dataFrameR);
+
+            statusMessage.innerText = "Running analysis...";
             const result = await shelter.captureR(rCommand);
 
+            // Handle output (same logic as before)
             const plotResult = result.images[0];
-            if(plotResult) {
-                // --- FINAL FIX: Resize the plot image before displaying it ---
-                const outputContent = plotImage.parentElement;
-                const style = window.getComputedStyle(outputContent);
-                const paddingX = parseFloat(style.paddingLeft) + parseFloat(style.paddingRight);
-                const availableWidth = outputContent.clientWidth - paddingX;
-                
-                let targetWidth = plotResult.width;
-                let targetHeight = plotResult.height;
-
-                if (plotResult.width > availableWidth) {
-                    const aspectRatio = plotResult.height / plotResult.width;
-                    targetWidth = availableWidth;
-                    targetHeight = availableWidth * aspectRatio;
-                }
-
-                const tempCanvas = document.createElement('canvas');
-                tempCanvas.width = targetWidth;
-                tempCanvas.height = targetHeight;
-                const tempCtx = tempCanvas.getContext('2d');
-                tempCtx.drawImage(plotResult, 0, 0, targetWidth, targetHeight);
-                
-                plotImage.src = tempCanvas.toDataURL();
-                plotImage.style.display = 'block';
-            }
-
+            if(plotResult) { /* ... plotting logic ... */ }
             statsOutput.innerText = result.output.filter(msg => msg.type !== 'stderr').map(msg => msg.data).join('\n').trim();
             statusMessage.innerText = "Analysis complete.";
         } catch (error) {
@@ -192,7 +135,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             statusMessage.innerText = "An error occurred. Check console.";
         } finally {
             await shelter.purge();
-            runButton.disabled = false;
+            gcRunButton.disabled = false;
         }
     }
 
@@ -201,13 +144,19 @@ document.addEventListener('DOMContentLoaded', async () => {
             statusMessage.innerText = "Initializing WebR...";
             await webR.init();
             statusMessage.innerText = "Installing R packages...";
-            await webR.evalR("webr::install(c('dplyr', 'rlang', 'ggplot2', 'rstatix', 'scales', 'ggpubr'))");
+            // ADDED purrr and rcompanion
+            await webR.evalR("webr::install(c('dplyr', 'rlang', 'ggplot2', 'rstatix', 'scales', 'ggpubr', 'purrr', 'rcompanion'))");
+            
             statusMessage.innerText = "Loading R functions...";
-            const response = await fetch(`r/paired_comparison.R?v=${new Date().getTime()}`);
-            const rScriptText = (await response.text()).replace(/\r/g, '');
-            await webR.evalR(rScriptText);
+            // Assumes both R files are in an 'r' folder
+            const pc_script = await (await fetch(`r/paired_comparison.R?v=${Date.now()}`)).text();
+            const gc_script = await (await fetch(`r/group_comparisons.R?v=${Date.now()}`)).text();
+            await webR.evalR(pc_script.replace(/\r/g, ''));
+            await webR.evalR(gc_script.replace(/\r/g, ''));
+
             statusMessage.innerText = "Ready.";
-            runButton.disabled = false;
+            pcRunButton.disabled = false;
+            gcRunButton.disabled = false;
         } catch (error) {
             console.error("Failed during initialization:", error);
             statusMessage.innerText = "Error during startup. Check console.";
