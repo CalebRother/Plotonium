@@ -31,7 +31,6 @@
         
         #layout-container { width: 100%; height: calc(100% - 41px); }
         .panel-content { padding: 1em; height: 100%; box-sizing: border-box; overflow: auto; }
-        .spreadsheet-content { padding: 0; }
         #spreadsheet-container { width: 100%; height: 100%; }
         
         pre { background-color: #f4f4f4; padding: 1em; white-space: pre-wrap; word-wrap: break-word; font-size: 0.9em; }
@@ -39,7 +38,9 @@
         .range-selector { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
         .range-selector label { flex-shrink: 0; width: 60px; }
         .range-selector input { flex-grow: 1; }
-        #plot-image { width: 100%; height: auto; display: block; margin-bottom: 1em; }
+        
+        /* FINAL FIX: Changed width to max-width */
+        #plot-image { max-width: 100%; height: auto; display: block; margin-bottom: 1em; }
     </style>
 </head>
 <body>
