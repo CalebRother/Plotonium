@@ -1,5 +1,5 @@
 import { WebR } from 'https://webr.r-wasm.org/latest/webr.mjs';
-import * as goldenLayout from 'golden-layout'; // Import Golden Layout as a module
+import * as goldenLayout from 'golden-layout'; 
 
 document.addEventListener('DOMContentLoaded', async () => {
 
@@ -33,6 +33,11 @@ document.addEventListener('DOMContentLoaded', async () => {
             licenseKey: 'non-commercial-and-evaluation',
             contextMenu: true
         });
+
+        // FIX: Listen for resize events to make the spreadsheet redraw itself
+        container.on('resize', () => {
+            hot.render();
+        });
     });
 
     layout.registerComponentFactoryFunction('controls', (container) => {
@@ -51,7 +56,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             type: 'column',
             content: [{
                 type: 'row',
-                height: 75,
+                height: 65, // ADJUSTED: Gave less height to the top row
                 content: [{
                     type: 'component',
                     componentType: 'output',
@@ -65,7 +70,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                 type: 'component',
                 componentType: 'controls',
                 title: 'Controls',
-                height: 25
+                height: 35 // ADJUSTED: Gave more height to the controls panel
             }]
         }
     };
