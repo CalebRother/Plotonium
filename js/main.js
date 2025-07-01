@@ -10,7 +10,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const runButton = document.getElementById('run-button');
     const statusMessage = document.getElementById('status-message');
     const outputsDiv = document.getElementById('outputs');
-    const plotImage = document.getElementById('plot-image'); // Changed from plotCanvas
+    const plotImage = document.getElementById('plot-image');
     const statsOutput = document.getElementById('stats-output');
     const beforeRangeInput = document.getElementById('before-range-input');
     const setBeforeButton = document.getElementById('set-before-button');
@@ -191,15 +191,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 const plots = result.images;
                 if (plots.length > 0) {
                     const plotBitmap = plots[0];
-
-                    // Create an off-screen canvas to convert the plot to a data URL
                     const tempCanvas = document.createElement('canvas');
                     tempCanvas.width = plotBitmap.width;
                     tempCanvas.height = plotBitmap.height;
                     const tempCtx = tempCanvas.getContext('2d');
                     tempCtx.drawImage(plotBitmap, 0, 0);
-
-                    // Set the data URL as the image source
                     plotImage.src = tempCanvas.toDataURL();
                     plotImage.style.display = 'block';
                 }
@@ -227,4 +223,22 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     main();
+
+    // --- Add Split.js Initialization ---
+    Split(['#top-panels-container', '#controls-panel'], {
+        sizes: [70, 30],
+        direction: 'vertical',
+        minSize: [200, 150],
+        gutterSize: 10,
+    });
+
+    Split(['#output-panel', '#spreadsheet-panel'], {
+        sizes: [50, 50],
+        minSize: 300,
+        gutterSize: 10,
+        onDrag: function() {
+            // Re-render Handsontable when dragging to prevent visual artifacts
+            hot.render();
+        }
+    });
 });
