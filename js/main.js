@@ -181,7 +181,30 @@ document.addEventListener('DOMContentLoaded', async () => {
             const result = await shelter.captureR(rCommand);
 
             const plotResult = result.images[0];
-            if(plotResult) { /* ... same plot resizing logic as before ... */ }
+            if(plotResult) { 
+                const outputContent = plotImage.parentElement;
+                const style = window.getComputedStyle(outputContent);
+                const paddingX = parseFloat(style.paddingLeft) + parseFloat(style.paddingRight);
+                const availableWidth = outputContent.clientWidth - paddingX;
+                
+                let targetWidth = plotResult.width;
+                let targetHeight = plotResult.height;
+
+                if (plotResult.width > availableWidth) {
+                    const aspectRatio = plotResult.height / plotResult.width;
+                    targetWidth = availableWidth;
+                    targetHeight = availableWidth * aspectRatio;
+                }
+
+                const tempCanvas = document.createElement('canvas');
+                tempCanvas.width = targetWidth;
+                tempCanvas.height = targetHeight;
+                const tempCtx = tempCanvas.getContext('2d');
+                tempCtx.drawImage(plotResult, 0, 0, targetWidth, targetHeight);
+                
+                plotImage.src = tempCanvas.toDataURL();
+                plotImage.style.display = 'block';
+             }
             statsOutput.innerText = result.output.filter(msg => msg.type !== 'stderr').map(msg => msg.data).join('\n').trim();
             statusMessage.innerText = "Analysis complete.";
 
@@ -200,7 +223,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             await webR.init();
             
             statusMessage.innerText = "Installing R packages...";
-            await webR.evalR("webr::install(c('dplyr', 'rlang', 'ggplot2', 'rstatix', 'scales', 'ggpubr', 'purrr', 'rcompanion', 'jsonlite'))");
+            // ADDED rootSolve to the list of packages to install
+            await webR.evalR("webr::install(c('dplyr', 'rlang', 'ggplot2', 'rstatix', 'scales', 'ggpubr', 'purrr', 'rcompanion', 'jsonlite', 'rootSolve'))");
             
             statusMessage.innerText = "Loading R functions...";
             const rScripts = ['paired_comparison.R', 'group_comparisons.R'];
