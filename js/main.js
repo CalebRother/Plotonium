@@ -1,7 +1,7 @@
 import { WebR } from 'https://webr.r-wasm.org/latest/webr.mjs';
 
 document.addEventListener('DOMContentLoaded', () => {
-    
+
     const webR = new WebR();
 
     // Get references to all HTML elements
@@ -10,7 +10,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const runButton = document.getElementById('run-button');
     const statusMessage = document.getElementById('status-message');
     const outputsDiv = document.getElementById('outputs');
-    const plotCanvas = document.getElementById('plot-canvas');
+    const plotImage = document.getElementById('plot-image'); // Changed from plotCanvas
     const statsOutput = document.getElementById('stats-output');
     const beforeRangeInput = document.getElementById('before-range-input');
     const setBeforeButton = document.getElementById('set-before-button');
@@ -131,7 +131,7 @@ document.addEventListener('DOMContentLoaded', () => {
             fileInput.value = '';
         }
     });
-    
+
     runButton.addEventListener('click', async () => {
         const beforeRangeStr = beforeRangeInput.value.trim();
         const afterRangeStr = afterRangeInput.value.trim();
@@ -144,6 +144,7 @@ document.addEventListener('DOMContentLoaded', () => {
         runButton.disabled = true;
         statusMessage.innerText = "Processing data...";
         outputsDiv.style.display = 'none';
+        plotImage.style.display = 'none';
 
         const shelter = await new webR.Shelter();
         try {
@@ -168,41 +169,47 @@ document.addEventListener('DOMContentLoaded', () => {
                  await shelter.purge();
                  return;
             }
-            
+
             const isParametric = parametricCheckbox.checked;
             statusMessage.innerText = "Running analysis...";
             const rCommand = `
                 before_vals <- c(${beforeData.join(',')})
                 after_vals <- c(${afterData.join(',')})
                 data <- data.frame(before_col = before_vals, after_col = after_vals)
-                
+
                 paired_comparison(
-                    data = data, 
-                    before_col = before_col, 
+                    data = data,
+                    before_col = before_col,
                     after_col = after_col,
                     parametric = ${isParametric ? 'TRUE' : 'FALSE'}
                 )
             `;
-            
+
             const result = await shelter.captureR(rCommand);
-            
+
             try {
                 const plots = result.images;
                 if (plots.length > 0) {
-                    const plot = plots[0]; 
-                    const ctx = plotCanvas.getContext('2d');
-                    plotCanvas.width = plot.width;
-                    plotCanvas.height = plot.height;
-                    ctx.drawImage(plot, 0, 0);
+                    const plotBitmap = plots[0];
+
+                    // Create an off-screen canvas to convert the plot to a data URL
+                    const tempCanvas = document.createElement('canvas');
+                    tempCanvas.width = plotBitmap.width;
+                    tempCanvas.height = plotBitmap.height;
+                    const tempCtx = tempCanvas.getContext('2d');
+                    tempCtx.drawImage(plotBitmap, 0, 0);
+
+                    // Set the data URL as the image source
+                    plotImage.src = tempCanvas.toDataURL();
+                    plotImage.style.display = 'block';
                 }
 
                 const textOutput = result.output
                     .filter(msg => msg.type === 'stdout' || msg.type === 'stderr' || msg.type === 'message')
                     .map(msg => msg.data)
                     .join('\n');
-                
+
                 statsOutput.innerText = textOutput.trim();
-                
                 outputsDiv.style.display = 'block';
 
             } finally {
