@@ -8,7 +8,8 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // --- 1. Golden Layout Configuration ---
     const layoutContainer = document.getElementById('layout-container');
-    const layout = new GoldenLayout(layoutContainer);
+    // CORRECTED: Use the correct variable name provided by the library
+    const layout = new goldenLayout.GoldenLayout(layoutContainer);
 
     // -- Component Registration --
     layout.registerComponentFactoryFunction('output', (container) => {
@@ -41,8 +42,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         // Get references to control panel elements
         statusMessage = container.element.querySelector('#status-message');
         runButton = container.element.querySelector('#run-button');
-        const beforeRangeInput = container.element.querySelector('#before-range-input');
-        const afterRangeInput = container.element.querySelector('#after-range-input');
         
         // Encapsulate all event listener logic here
         initializeEventListeners(container.element);
