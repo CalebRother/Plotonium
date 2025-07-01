@@ -8,6 +8,7 @@
     <script src="https://cdn.jsdelivr.net/npm/handsontable/dist/handsontable.full.min.js"></script>
     <link href="https://cdn.jsdelivr.net/npm/handsontable/dist/handsontable.full.min.css" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+    <script src="https://unpkg.com/split.js/dist/split.min.js"></script>
 
     <style>
         body { font-family: sans-serif; margin: 0; padding: 0; background-color: #f8f9fa; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
@@ -18,25 +19,30 @@
         .top-toolbar a:hover { background-color: #eee; }
         .top-toolbar ul ul { display: none; position: absolute; background-color: #fff; border: 1px solid #ddd; min-width: 180px; z-index: 1000; }
         .top-toolbar li:hover > ul { display: block; }
-        .app-container { display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: 1fr auto; grid-template-areas: "output spreadsheet" "controls controls"; flex-grow: 1; gap: 1em; padding: 1em; box-sizing: border-box; overflow: hidden; }
-        .panel { display: flex; flex-direction: column; background-color: #fff; border: 1px solid #ddd; border-radius: 8px; overflow: auto; padding: 1em; }
-        .output-panel { grid-area: output; }
-        .spreadsheet-panel { grid-area: spreadsheet; padding: 0; }
-        .controls-panel { grid-area: controls; flex-direction: row; flex-wrap: wrap; align-items: flex-start;}
+
+        /* Changed from Grid to Flexbox for Split.js */
+        .app-container { display: flex; flex-direction: column; flex-grow: 1; gap: 1em; padding: 1em; box-sizing: border-box; overflow: hidden; }
+        #top-panels-container { display: flex; flex-direction: row; gap: 1em; height: 75%; }
+        
+        .panel { background-color: #fff; border: 1px solid #ddd; border-radius: 8px; overflow: auto; padding: 1em; }
+        .spreadsheet-panel { padding: 0; }
+        .controls-panel { flex-direction: row; flex-wrap: wrap; align-items: flex-start; height: 25%; }
+        
         #spreadsheet-container { width: 100%; height: 100%; overflow: hidden; }
         pre { background-color: #f4f4f4; padding: 1em; white-space: pre-wrap; word-wrap: break-word; font-size: 0.9em; overflow: auto; }
         button:disabled { cursor: not-allowed; background-color: #ccc; }
         .range-selector { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
         .range-selector label { flex-shrink: 0; width: 60px; }
         .range-selector input { flex-grow: 1; }
-        #outputs { display: none; flex-direction: column; }
-        #plot-image {
-            width: 100%;
-            height: auto;
-            display: block;
-            margin-bottom: 1em;
-        }
+        #outputs { display: block; flex-direction: column; }
+        #plot-image { width: 100%; height: auto; display: block; margin-bottom: 1em; }
         #stats-output { display: block; }
+
+        /* Styles for the draggable gutters */
+        .gutter { background-color: #f1f1f1; background-repeat: no-repeat; background-position: 50%; }
+        .gutter.gutter-vertical { cursor: row-resize; background-image: url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAB4AAAAFAQMAAABo7865AAAABlBMVEVHcEzMzMzyAv2sAAAAAXRSTlMAQObYZgAAABBJREFUeF5jOAMEEAIEEFwAn3kMwcB6I2AAAAAASUVORK5CYII='); }
+        .gutter.gutter-horizontal { cursor: col-resize; background-image: url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAUAAAAeCAYAAADkftS9AAAAIklEQVQoU2M4c+bMfxgYGBgYGGgAjI2MGxBFmLvsADIAGQMAmXwZXV_cymcAAAAASUVORK5CYII='); }
+        .split { display: flex; flex-direction: row; }
     </style>
 </head>
 <body>
@@ -48,19 +54,21 @@
         </ul>
     </nav>
     <input type="file" id="csv-file-input" accept=".csv" style="display: none;">
-    <div class="app-container">
-        <div class="panel output-panel">
-            <h2>Output Window</h2>
-            <div id="outputs">
-                <img id="plot-image" alt="Statistical plot">
-                <h4>Statistical Summary</h4>
-                <pre><code id="stats-output"></code></pre>
+    <div class="app-container split">
+        <div id="top-panels-container" class="split">
+            <div id="output-panel" class="panel output-panel">
+                <h2>Output Window</h2>
+                <div id="outputs">
+                    <img id="plot-image" alt="Statistical plot" style="display: none;">
+                    <h4>Statistical Summary</h4>
+                    <pre><code id="stats-output"></code></pre>
+                </div>
+            </div>
+            <div id="spreadsheet-panel" class="panel spreadsheet-panel">
+                <div id="spreadsheet-container"></div>
             </div>
         </div>
-        <div class="panel spreadsheet-panel">
-            <div id="spreadsheet-container"></div>
-        </div>
-        <div class="panel controls-panel">
+        <div id="controls-panel" class="panel controls-panel">
             <div id="analysis-section">
                 <h3>Plotonium</h3>
                 <p>Highlight a range and click "Set", or type the range manually.</p>
